@@ -2,16 +2,18 @@ import sys
 import subprocess
 import threading
 import os
+import json
+import signal
 from datetime import datetime
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGroupBox, QLabel, QLineEdit, QPushButton, QTextEdit, QCheckBox,
     QComboBox, QSpinBox, QFileDialog, QMessageBox, QTabWidget,
-    QTableWidget, QTableWidgetItem, QSplitter, QProgressBar
+    QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize
-from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor
+from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap
 
 
 class RobocopyThread(QThread):
@@ -23,24 +25,27 @@ class RobocopyThread(QThread):
     def __init__(self, command):
         super().__init__()
         self.command = command
+        self.process = None
+        self.is_paused = False
 
     def run(self):
         try:
             self.output_signal.emit(f"[{datetime.now().strftime('%H:%M:%S')}] Menjalankan command:\n{self.command}\n")
             self.output_signal.emit("=" * 80 + "\n")
             
-            process = subprocess.Popen(
+            self.process = subprocess.Popen(
                 self.command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                shell=True
+                shell=True,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
             )
 
-            for line in process.stdout:
+            for line in self.process.stdout:
                 self.output_signal.emit(line)
 
-            returncode = process.wait()
+            returncode = self.process.wait()
             self.output_signal.emit("\n" + "=" * 80)
             self.output_signal.emit(f"[{datetime.now().strftime('%H:%M:%S')}] Proses selesai dengan exit code: {returncode}\n")
             self.finished_signal.emit(returncode)
@@ -48,15 +53,36 @@ class RobocopyThread(QThread):
             self.error_signal.emit(f"Error: {str(e)}")
             self.finished_signal.emit(-1)
 
+    def stop_process(self):
+        """Stop robocopy process"""
+        if self.process:
+            try:
+                # Kill process group untuk terminate semua child processes
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                self.output_signal.emit(f"\n[{datetime.now().strftime('%H:%M:%S')}] Proses dihentikan oleh user.\n")
+            except Exception as e:
+                self.error_signal.emit(f"Error saat menghentikan proses: {str(e)}")
+
 
 class RobocopyGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.robocopy_thread = None
+        self.config_file = Path("config.conf")
         self.init_ui()
         self.setWindowTitle("Robocopy UI - Advanced File Copy Tool")
         self.setGeometry(100, 100, 1200, 800)
+        self.setup_window_icon()
+        self.load_config()
         self.show()
+
+    def setup_window_icon(self):
+        """Setup window icon from favicon.ico or logo.png"""
+        icon_paths = ["favicon.ico", "logo.png", "icon.png"]
+        for icon_path in icon_paths:
+            if Path(icon_path).exists():
+                self.setWindowIcon(QIcon(icon_path))
+                break
 
     def init_ui(self):
         """Initialize semua UI elements"""
@@ -87,6 +113,9 @@ class RobocopyGUI(QMainWindow):
 
         # Tab 4: Retry & Logging
         tabs.addTab(self.create_retry_logging_tab(), "Retry & Logging")
+
+        # Tab 5: About
+        tabs.addTab(self.create_about_tab(), "About")
 
         # Output section
         output_group = QGroupBox("Output Log")
@@ -119,6 +148,10 @@ class RobocopyGUI(QMainWindow):
         copy_button = QPushButton("📋 Copy Command")
         copy_button.clicked.connect(self.copy_command)
         button_layout.addWidget(copy_button)
+
+        save_config_button = QPushButton("💾 Save Config")
+        save_config_button.clicked.connect(self.save_config)
+        button_layout.addWidget(save_config_button)
 
         main_layout.addLayout(button_layout)
 
@@ -339,6 +372,109 @@ class RobocopyGUI(QMainWindow):
         widget.setLayout(layout)
         return widget
 
+    def create_about_tab(self):
+        """Tab untuk informasi aplikasi dan developer"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+
+        # Logo section
+        logo_group = QGroupBox("Application Logo")
+        logo_layout = QVBoxLayout()
+        logo_label = QLabel()
+        
+        logo_paths = [ "icon.png","favicon.ico", "logo.png"]
+        for logo_path in logo_paths:
+            if Path(logo_path).exists():
+                pixmap = QPixmap(logo_path)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaledToWidth(200, Qt.SmoothTransformation)
+                    logo_label.setPixmap(scaled_pixmap)
+                    logo_label.setAlignment(Qt.AlignCenter)
+                    break
+        
+        logo_layout.addWidget(logo_label)
+        logo_group.setLayout(logo_layout)
+        scroll_layout.addWidget(logo_group)
+
+        # Application info
+        app_info_group = QGroupBox("Application Information")
+        app_info_layout = QVBoxLayout()
+        
+        app_info_text = QTextEdit()
+        app_info_text.setReadOnly(True)
+        app_info_text.setText("""
+        <b>Robocopy Advanced GUI</b><br><br>
+        <b>Version:</b> 1.0.0<br>
+        <b>Release Date:</b> February 2026<br><br>
+        
+        <b>Description:</b><br>
+        Robocopy Advanced GUI adalah aplikasi antarmuka grafis yang dirancang untuk 
+        memudahkan pengguna Windows dalam menjalankan perintah Robocopy (Robust File Copy) 
+        dengan parameter yang dapat dikonfigurasi melalui GUI yang user-friendly.<br><br>
+        
+        <b>Features:</b><br>
+        • Browse folder source dan destination<br>
+        • Konfigurasi copy options (mirror, move, purge, dll)<br>
+        • File selection dengan include/exclude patterns<br>
+        • Retry dan logging configuration<br>
+        • Multi-threaded copy support<br>
+        • Real-time output logging<br>
+        • Configuration save/load<br>
+        • Copy command to clipboard<br><br>
+        
+        <b>System Requirements:</b><br>
+        • Windows 7 atau lebih baru<br>
+        • Python 3.7+<br>
+        • PyQt5<br>
+        """)
+        app_info_layout.addWidget(app_info_text)
+        app_info_group.setLayout(app_info_layout)
+        scroll_layout.addWidget(app_info_group)
+
+        # Developer info
+        dev_info_group = QGroupBox("Developer Information")
+        dev_info_layout = QVBoxLayout()
+        
+        dev_info_text = QTextEdit()
+        dev_info_text.setReadOnly(True)
+        dev_info_text.setText("""
+        <b>Development Team</b><br><br>
+        
+        <b>Project:</b> Robocopy Advanced GUI<br>
+        <b>Repository:</b> SCProvision/PYTHON/robocopy-ui<br><br>
+        
+        <b>Technologies Used:</b><br>
+        • Python 3<br>
+        • PyQt5 (GUI Framework)<br>
+        • Windows Robocopy.exe<br><br>
+        
+        <b>Key Features Implementation:</b><br>
+        • Multi-threaded subprocess management<br>
+        • Configuration persistence (JSON)<br>
+        • Icon support (favicon.ico, logo.png)<br>
+        • Process control (stop/pause)<br>
+        • Real-time output streaming<br><br>
+        
+        <b>Support & Documentation:</b><br>
+        Untuk informasi lebih lanjut, lihat file README.md yang tersedia dalam project.<br><br>
+        
+        <b>License:</b> Internal Use<br>
+        <b>Last Updated:</b> February 2026<br>
+        """)
+        dev_info_layout.addWidget(dev_info_text)
+        dev_info_group.setLayout(dev_info_layout)
+        scroll_layout.addWidget(dev_info_group)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+        widget.setLayout(layout)
+        return widget
+
     def browse_folder(self, input_widget):
         """Browse folder dialog"""
         folder = QFileDialog.getExistingDirectory(self, "Select Folder")
@@ -444,7 +580,9 @@ class RobocopyGUI(QMainWindow):
     def stop_robocopy(self):
         """Stop robocopy process"""
         if self.robocopy_thread and self.robocopy_thread.isRunning():
-            QMessageBox.information(self, "Info", "Untuk stop process, please close robocopy.exe dari Task Manager")
+            self.robocopy_thread.stop_process()
+            self.stop_button.setEnabled(False)
+            self.run_button.setEnabled(True)
 
     def on_robocopy_finished(self, returncode):
         """Called when robocopy thread finishes"""
@@ -455,6 +593,9 @@ class RobocopyGUI(QMainWindow):
             self.output_text.append("\n✓ Robocopy berhasil dijalankan!")
         else:
             self.output_text.append(f"\n✗ Robocopy selesai dengan exit code: {returncode}")
+        
+        # Auto-save config
+        self.save_config()
 
     def on_robocopy_error(self, error):
         """Called when robocopy error occurs"""
@@ -479,6 +620,78 @@ class RobocopyGUI(QMainWindow):
             from PyQt5.QtWidgets import QApplication
             QApplication.clipboard().setText(command)
             QMessageBox.information(self, "Success", "Command copied to clipboard!")
+
+    def save_config(self):
+        """Save configuration to config.conf"""
+        try:
+            config_data = {
+                "source": self.source_input.text(),
+                "destination": self.dest_input.text(),
+                "copy_subdirs": self.copy_subdirs.isChecked(),
+                "copy_empty": self.copy_empty.isChecked(),
+                "copy_attributes": self.copy_attributes.isChecked(),
+                "copy_security": self.copy_security.isChecked(),
+                "copy_all_info": self.copy_all_info.isChecked(),
+                "recurse": self.recurse.isChecked(),
+                "multi_thread": self.multi_thread.isChecked(),
+                "multi_thread_num": self.multi_thread_num.value(),
+                "move_files": self.move_files.isChecked(),
+                "purge": self.purge.isChecked(),
+                "mirror": self.mirror.isChecked(),
+                "include_files": self.include_files.text(),
+                "exclude_files": self.exclude_files.text(),
+                "exclude_dirs": self.exclude_dirs.text(),
+                "max_age_check": self.max_age_check.isChecked(),
+                "max_age_spin": self.max_age_spin.value(),
+                "retry_count": self.retry_count.value(),
+                "retry_wait": self.retry_wait.value(),
+                "verbose": self.verbose.isChecked(),
+                "log_only": self.log_only.isChecked(),
+                "log_file_check": self.log_file_check.isChecked(),
+                "log_file_input": self.log_file_input.text(),
+            }
+            
+            with open(self.config_file, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            
+            QMessageBox.information(self, "Success", "Konfigurasi berhasil disimpan ke config.conf")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error menyimpan konfigurasi:\n{str(e)}")
+
+    def load_config(self):
+        """Load configuration from config.conf"""
+        try:
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    config_data = json.load(f)
+                
+                # Load all settings
+                self.source_input.setText(config_data.get("source", ""))
+                self.dest_input.setText(config_data.get("destination", ""))
+                self.copy_subdirs.setChecked(config_data.get("copy_subdirs", True))
+                self.copy_empty.setChecked(config_data.get("copy_empty", False))
+                self.copy_attributes.setChecked(config_data.get("copy_attributes", True))
+                self.copy_security.setChecked(config_data.get("copy_security", False))
+                self.copy_all_info.setChecked(config_data.get("copy_all_info", False))
+                self.recurse.setChecked(config_data.get("recurse", False))
+                self.multi_thread.setChecked(config_data.get("multi_thread", False))
+                self.multi_thread_num.setValue(config_data.get("multi_thread_num", 8))
+                self.move_files.setChecked(config_data.get("move_files", False))
+                self.purge.setChecked(config_data.get("purge", False))
+                self.mirror.setChecked(config_data.get("mirror", False))
+                self.include_files.setText(config_data.get("include_files", ""))
+                self.exclude_files.setText(config_data.get("exclude_files", ""))
+                self.exclude_dirs.setText(config_data.get("exclude_dirs", ""))
+                self.max_age_check.setChecked(config_data.get("max_age_check", False))
+                self.max_age_spin.setValue(config_data.get("max_age_spin", 30))
+                self.retry_count.setValue(config_data.get("retry_count", 1))
+                self.retry_wait.setValue(config_data.get("retry_wait", 30))
+                self.verbose.setChecked(config_data.get("verbose", False))
+                self.log_only.setChecked(config_data.get("log_only", False))
+                self.log_file_check.setChecked(config_data.get("log_file_check", False))
+                self.log_file_input.setText(config_data.get("log_file_input", "robocopy_log.txt"))
+        except Exception as e:
+            print(f"Error loading config: {str(e)}")
 
 
 def main():
