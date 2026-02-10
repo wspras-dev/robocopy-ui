@@ -76,6 +76,34 @@ class RobocopyGUI(QMainWindow):
         self.load_config()
         self.show()
 
+    def closeEvent(self, event):
+        """Handle window close event dengan confirmation dialog"""
+        if self.robocopy_thread and self.robocopy_thread.isRunning():
+            reply = QMessageBox.warning(
+                self,
+                "Proses Sedang Berjalan",
+                "Proses copy robocopy masih sedang berjalan.\n\nYakin akan mengakhiri aplikasi?\nProses akan dihentikan.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self.robocopy_thread.stop_process()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            reply = QMessageBox.question(
+                self,
+                "Konfirmasi Keluar",
+                "Yakin akan mengakhiri aplikasi?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
+
     def setup_window_icon(self):
         """Setup window icon from favicon.ico or logo.png"""
         icon_paths = ["favicon.ico", "logo.png", "icon.png"]
@@ -430,6 +458,7 @@ class RobocopyGUI(QMainWindow):
         • Windows 7 atau lebih baru<br>
         • Python 3.7+<br>
         • PyQt5<br>
+
         """)
         app_info_layout.addWidget(app_info_text)
         app_info_group.setLayout(app_info_layout)
@@ -442,10 +471,14 @@ class RobocopyGUI(QMainWindow):
         dev_info_text = QTextEdit()
         dev_info_text.setReadOnly(True)
         dev_info_text.setText("""
-        <b>Development Team</b><br><br>
-        
-        <b>Project:</b> Robocopy Advanced GUI<br>
-        <b>Repository:</b> SCProvision/PYTHON/robocopy-ui<br><br>
+        <b>Development Team</b><br><br><br>
+        <b>Personal:</b><br>
+        • github.com/wspras-dev<br>
+        • Widayat S Prasetiyo<br>
+        • wspras@yahoo.com<br><br>
+
+        <b>Project:</b> Robocopy Advanced GUI<br><br>
+        <b>Repository:</b>  github.com/wspras-dev/robocopy-ui<br><br>
         
         <b>Technologies Used:</b><br>
         • Python 3<br>
