@@ -9,7 +9,7 @@ set INI=config.conf
 set OUTDIR=dist
 
 REM Build dengan logo.png dan config.conf ikut dibundle
-pyinstaller --onefile --windowed --add-data "%FAVICON%;." --add-data "%LOGO%;." --add-data "%INI%;." "%SCRIPT%"
+pyinstaller --clean --onefile --windowed --icon="favicon.ico" --add-data "%FAVICON%;." --add-data "%LOGO%;." --add-data "%INI%;." "%SCRIPT%"
 
 REM Selesai
 pause
