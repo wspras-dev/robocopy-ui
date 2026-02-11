@@ -3,62 +3,23 @@
    ROBOCOPY     ::     Robust File Copy for Windows                              
 -------------------------------------------------------------------------------
 
-  Started : Tuesday, 10 February 2026 21:31:32
-   Source : D:\ServerDevOps\bin\
-     Dest : G:\Temp\bin\
+  Started : Wednesday, 11 February 2026 15:16:43
+   Source : D:\ServerDevOps\env\php\
+     Dest : E:\Temp\COBA\env-enclide\php\
 
     Files : *.*
 	    
-  Options : *.* /S /E /DCOPY:DA /COPY:DAT /MT:8 /R:1 /W:30 
+  Options : *.* /S /E /DCOPY:DA /COPY:DAT /XJ /MT:8 /R:1 /W:30 
 
 ------------------------------------------------------------------------------
 
-	    New File  		    2140	D:\ServerDevOps\bin\devops_config.ini100%  
-	    New File  		    1595	D:\ServerDevOps\bin\devops_config_admin.ini100%  
-	    New File  		  20.0 m	D:\ServerDevOps\bin\rl-devops-manager.exe 29%   44%   59%   64%   69%   84%   94%  100%  
-	    New File  		  20.0 m	D:\ServerDevOps\bin\rl-devops-managerX.exe100%  
-	    New File  		    4803	D:\ServerDevOps\bin\rl-devops-mariadb-on-production-1.bat100%  
-	    New File  		    5228	D:\ServerDevOps\bin\rl-devops-mongodb-on-production-1.bat100%  
-	    New File  		    5011	D:\ServerDevOps\bin\rl-devops-postgresql-on-production-1.bat100%  
-	    New File  		    5570	D:\ServerDevOps\bin\rl-devops-webserver-default.bat100%  
-	    New File  		    5939	D:\ServerDevOps\bin\rl-devops-webserver-on-backward-1.bat100%  
-	    New File  		    5934	D:\ServerDevOps\bin\rl-devops-webserver-on-backward-2-VC15.bat100%  
-	    New File  		    5934	D:\ServerDevOps\bin\rl-devops-webserver-on-backward-2-VS17.bat100%  
-	    New File  		    5947	D:\ServerDevOps\bin\rl-devops-webserver-on-production-1.bat100%  
-	    New File  		    5946	D:\ServerDevOps\bin\rl-devops-webserver-on-production-2.bat100%  
-	    New File  		    5946	D:\ServerDevOps\bin\rl-devops-webserver-on-production-3.bat100%  
-	    New File  		    5946	D:\ServerDevOps\bin\rl-devops-webserver-on-production-4.bat100%  
-	    New File  		  19.0 m	D:\ServerDevOps\bin\rl-devops.exe 84%  100%  
-	    New File  		    1095	D:\ServerDevOps\bin\rl-setup-portable-npm.bat100%  
-	    New File  		   10849	D:\ServerDevOps\bin\rl-setup-portablenpm.ps1100%  
-	    New File  		     780	D:\ServerDevOps\bin\ssl\makecert.bat100%  
-	    New File  		     649	D:\ServerDevOps\bin\ssl\makecert.build.self.bat100%  
-	    New File  		     580	D:\ServerDevOps\bin\ps1\function -  DServerDevOpsapp.txt100%  
-	    New File  		     580	D:\ServerDevOps\bin\ps1\php-version.ps1100%  
-	    New File  		     141	D:\ServerDevOps\bin\ps1\php56-artisan.bat100%  
-	    New File  		     140	D:\ServerDevOps\bin\ps1\php82-artisan.bat100%  
-	    New File  		     547	D:\ServerDevOps\bin\trunk\httpd-backward\apache.backward-1.install.services.bat100%  
-	    New File  		     356	D:\ServerDevOps\bin\trunk\httpd-backward\apache.backward-1.remove.services.bat100%  
-	    New File  		    4520	D:\ServerDevOps\bin\trunk\nginx-production\rl-toolkit-nginx-install.bat100%  
-	    New File  		    1448	D:\ServerDevOps\bin\ssl\conf\ssl.crt\server.cert100%  
-	    New File  		    1732	D:\ServerDevOps\bin\ssl\conf\ssl.key\server.key100%  
-	    New File  		    2365	D:\ServerDevOps\bin\trunk\mariadb-backward\run.install.services.mariadb.backward.manager-2025-devops-std.bat100%  
-	    New File  		    2488	D:\ServerDevOps\bin\trunk\mariadb-backward\run.install.services.mariadb.backward.manager-2025-devops.bat100%  
-	    New File  		     921	D:\ServerDevOps\bin\trunk\mariadb-backward\run.instance.newdb.mariadb.backward.bat100%  
-	    New File  		    1840	D:\ServerDevOps\bin\trunk\mariadb-backward\run.remove.services.mariadb.backward.manager-2025-devops.bat100%  
-	    New File  		     553	D:\ServerDevOps\bin\trunk\httpd-production\apache.production-1.install.services.bat100%  
-	    New File  		     362	D:\ServerDevOps\bin\trunk\httpd-production\apache.production-1.remove.services.bat100%  
 
 ------------------------------------------------------------------------------
 
                Total    Copied   Skipped  Mismatch    FAILED    Extras
-    Dirs :        31        31         0         0         0         0
-   Files :        35        35         0         0         0         0
-   Bytes :   59.26 m   59.26 m         0         0         0         0
-   Times :   0:00:28   0:00:03                       0:00:00   0:00:00
-
-
-   Speed :           17.992.113 Bytes/sec.
-   Speed :             1029,517 MegaBytes/min.
-   Ended : Tuesday, 10 February 2026 21:31:36
+    Dirs :         1         1         0         0         0         0
+   Files :         0         0         0         0         0         0
+   Bytes :         0         0         0         0         0         0
+   Times :   0:00:00   0:00:00                       0:00:00   0:00:00
+   Ended : Wednesday, 11 February 2026 15:16:43
 

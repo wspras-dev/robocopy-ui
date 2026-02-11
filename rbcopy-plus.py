@@ -142,7 +142,10 @@ class RobocopyGUI(QMainWindow):
         # Tab 4: Retry & Logging
         tabs.addTab(self.create_retry_logging_tab(), "Retry & Logging")
 
-        # Tab 5: About
+        # Tab 5: Junction & Symbolic Links
+        tabs.addTab(self.create_junction_links_tab(), "Junction & Links")
+
+        # Tab 6: About
         tabs.addTab(self.create_about_tab(), "About")
 
         # Output section
@@ -400,6 +403,70 @@ class RobocopyGUI(QMainWindow):
         widget.setLayout(layout)
         return widget
 
+    def create_junction_links_tab(self):
+        """Tab untuk Junction dan Symbolic Link options"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        # Information group
+        info_group = QGroupBox("Informasi")
+        info_layout = QVBoxLayout()
+        info_text = QTextEdit()
+        info_text.setReadOnly(True)
+        info_text.setText("""
+        <b>Junction dan Symbolic Link Options</b><br><br>
+        <b>/SJ (Salin Junction):</b><br>
+        Menyalin Junction/Symbolic Link itu sendiri ke tujuan, bukan menyalin file di dalam direktori target.<br><br>
+        
+        <b>/SL (Salin Symbolic Link):</b><br>
+        Menyalin tautan simbolik sebagai tautan, bukan menyalin file target.<br><br>
+        
+        <b>/XJ (Kecualikan Persimpangan):</b><br>
+        Mengecualikan semua titik persimpangan (biasanya disertakan secara default), mencegah potensi perulangan tak terbatas.<br><br>
+        
+        <b>/XJD (Kecualikan Direktori Junction):</b><br>
+        Secara khusus mengecualikan titik junction untuk direktori.<br><br>
+        
+        <b>/XJF (Kecualikan File Junction):</b><br>
+        Secara khusus mengecualikan titik junction untuk file.
+        """)
+        info_layout.addWidget(info_text)
+        info_group.setLayout(info_layout)
+        layout.addWidget(info_group)
+
+        # Copy options group
+        copy_group = QGroupBox("Copy Options")
+        copy_layout = QVBoxLayout()
+
+        self.copy_junction = QCheckBox("/SJ - Salin Junction/Symbolic Link itu sendiri")
+        copy_layout.addWidget(self.copy_junction)
+
+        self.copy_symlink = QCheckBox("/SL - Salin Symbolic Link sebagai tautan")
+        copy_layout.addWidget(self.copy_symlink)
+
+        copy_group.setLayout(copy_layout)
+        layout.addWidget(copy_group)
+
+        # Exclude options group
+        exclude_group = QGroupBox("Exclude Options")
+        exclude_layout = QVBoxLayout()
+
+        self.exclude_junction = QCheckBox("/XJ - Kecualikan semua Junction points")
+        exclude_layout.addWidget(self.exclude_junction)
+
+        self.exclude_junction_dir = QCheckBox("/XJD - Kecualikan Junction untuk Direktori")
+        exclude_layout.addWidget(self.exclude_junction_dir)
+
+        self.exclude_junction_file = QCheckBox("/XJF - Kecualikan Junction untuk File")
+        exclude_layout.addWidget(self.exclude_junction_file)
+
+        exclude_group.setLayout(exclude_layout)
+        layout.addWidget(exclude_group)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
     def create_about_tab(self):
         """Tab untuk informasi aplikasi dan developer"""
         widget = QWidget()
@@ -450,6 +517,7 @@ class RobocopyGUI(QMainWindow):
         • File selection dengan include/exclude patterns<br>
         • Retry dan logging configuration<br>
         • Multi-threaded copy support<br>
+        • Junction dan Symbolic Link management<br>
         • Real-time output logging<br>
         • Configuration save/load<br>
         • Copy command to clipboard<br><br>
@@ -575,6 +643,18 @@ class RobocopyGUI(QMainWindow):
             for d in exclude_dirs:
                 cmd += f' /XD "{d.strip()}"'
 
+        # Junction and Symbolic Link options
+        if self.copy_junction.isChecked():
+            cmd += " /SJ"
+        if self.copy_symlink.isChecked():
+            cmd += " /SL"
+        if self.exclude_junction.isChecked():
+            cmd += " /XJ"
+        if self.exclude_junction_dir.isChecked():
+            cmd += " /XJD"
+        if self.exclude_junction_file.isChecked():
+            cmd += " /XJF"
+
         # File age filter
         if self.max_age_check.isChecked():
             days = self.max_age_spin.value()
@@ -682,6 +762,11 @@ class RobocopyGUI(QMainWindow):
                 "log_only": self.log_only.isChecked(),
                 "log_file_check": self.log_file_check.isChecked(),
                 "log_file_input": self.log_file_input.text(),
+                "copy_junction": self.copy_junction.isChecked(),
+                "copy_symlink": self.copy_symlink.isChecked(),
+                "exclude_junction": self.exclude_junction.isChecked(),
+                "exclude_junction_dir": self.exclude_junction_dir.isChecked(),
+                "exclude_junction_file": self.exclude_junction_file.isChecked(),
             }
             
             with open(self.config_file, 'w') as f:
@@ -723,6 +808,11 @@ class RobocopyGUI(QMainWindow):
                 self.log_only.setChecked(config_data.get("log_only", False))
                 self.log_file_check.setChecked(config_data.get("log_file_check", False))
                 self.log_file_input.setText(config_data.get("log_file_input", "robocopy_log.txt"))
+                self.copy_junction.setChecked(config_data.get("copy_junction", False))
+                self.copy_symlink.setChecked(config_data.get("copy_symlink", False))
+                self.exclude_junction.setChecked(config_data.get("exclude_junction", False))
+                self.exclude_junction_dir.setChecked(config_data.get("exclude_junction_dir", False))
+                self.exclude_junction_file.setChecked(config_data.get("exclude_junction_file", False))
         except Exception as e:
             print(f"Error loading config: {str(e)}")
 

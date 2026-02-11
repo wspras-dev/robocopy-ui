@@ -44,6 +44,13 @@ Aplikasi GUI untuk menjalankan Windows Robocopy dengan antarmuka yang user-frien
 - **List Only Mode**: Test mode tanpa benar-benar copy file
 - **Log to File**: Save output ke file `.log`
 
+### 🔗 **Junction & Symbolic Link Management**
+- **Copy Junction (/SJ)**: Salin Junction/Symbolic Link itu sendiri, bukan file di dalam direktori target
+- **Copy Symbolic Link (/SL)**: Salin tautan simbolik sebagai tautan, bukan file target
+- **Exclude Junction (/XJ)**: Kecualikan semua junction points untuk mencegah perulangan tak terbatas
+- **Exclude Directory Junction (/XJD)**: Kecualikan titik junction untuk direktori saja
+- **Exclude File Junction (/XJF)**: Kecualikan titik junction untuk file saja
+
 ### 🎯 **Additional Features**
 - **Real-time Output Logging**: Monitor proses copy secara real-time
 - **Copy Command**: Copy generated command ke clipboard
@@ -266,6 +273,50 @@ python rbcopy-plus.py
 
 ---
 
+### Tab: Junction & Symbolic Links
+
+#### Copy Options
+
+| Option | Parameter | Deskripsi |
+|--------|-----------|-----------|
+| Copy Junction | /SJ | Salin Junction/Symbolic Link itu sendiri, bukan file di dalam |
+| Copy Symbolic Link | /SL | Salin tautan simbolik sebagai tautan, bukan file target |
+
+**Tips:**
+- Gunakan `/SJ` untuk backup struktur junction tanpa mengikuti target
+- Gunakan `/SL` untuk preserve symbolic link references
+
+#### Exclude Options
+
+| Option | Parameter | Deskripsi |
+|--------|-----------|-----------|
+| Exclude Junction | /XJ | Kecualikan SEMUA junction points |
+| Exclude Dir Junction | /XJD | Kecualikan junction untuk direktori saja |
+| Exclude File Junction | /XJF | Kecualikan junction untuk file saja |
+
+**Tips:**
+- Gunakan `/XJ` untuk avoid infinite loops dengan circular junctions
+- Gunakan `/XJD` atau `/XJF` untuk selective exclude
+- Default behavior: junctions di-follow (included)
+
+#### Contoh Kasus Penggunaan
+
+**Kasus 1: Backup dengan preserving junctions**
+- Centang: `/SJ` (Copy Junction)
+- Exclude: None
+- Hasil: Junction akan di-copy as-is, referensi tetap pointing ke original location
+
+**Kasus 2: Avoid circular references**
+- Centang: `/XJ` (Exclude Junction)
+- Hasil: Semua junction diabaikan, hanya regular files dan folders di-copy
+- Aman untuk: Network shares, system folders dengan circular junctions
+
+**Kasus 3: Copy hanya file (skip symlinks)**
+- Centang: `/XJF` (Exclude File Junction)
+- Hasil: File junctions di-skip, tapi directory junctions dan file regular tetap di-copy
+
+---
+
 ## Configuration File
 
 ### File Lokasi
@@ -299,7 +350,12 @@ python rbcopy-plus.py
   "verbose": false,
   "log_only": false,
   "log_file_check": true,
-  "log_file_input": "robocopy_log.txt"
+  "log_file_input": "robocopy_log.txt",
+  "copy_junction": false,
+  "copy_symlink": false,
+  "exclude_junction": false,
+  "exclude_junction_dir": false,
+  "exclude_junction_file": false
 }
 ```
 
