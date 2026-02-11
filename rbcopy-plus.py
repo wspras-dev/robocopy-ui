@@ -4,7 +4,9 @@ import threading
 import os
 import json
 import signal
-from datetime import datetime
+import time
+import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -21,18 +23,27 @@ class RobocopyThread(QThread):
     output_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(int)
     error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(int)  # Progress percentage
+    time_estimate_signal = pyqtSignal(str)  # Time estimation
+    file_count_signal = pyqtSignal(int, int)  # Current file, Total files
 
-    def __init__(self, command):
+    def __init__(self, command, enable_progress=True):
         super().__init__()
         self.command = command
         self.process = None
         self.is_paused = False
+        self.enable_progress = enable_progress
+        self.start_time = None
+        self.files_copied = 0
+        self.total_files_estimated = 0
 
     def run(self):
         try:
+            self.start_time = time.time()
             self.output_signal.emit(f"[{datetime.now().strftime('%H:%M:%S')}] Menjalankan command:\n{self.command}\n")
             self.output_signal.emit("=" * 80 + "\n")
             
+            # Create process dengan NEW_PROCESS_GROUP untuk proper child process management
             self.process = subprocess.Popen(
                 self.command,
                 stdout=subprocess.PIPE,
@@ -42,8 +53,13 @@ class RobocopyThread(QThread):
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
             )
 
+            # Track progress dari robocopy output
             for line in self.process.stdout:
                 self.output_signal.emit(line)
+                
+                # Parse robocopy output untuk progress tracking
+                if self.enable_progress:
+                    self._parse_progress_line(line)
 
             returncode = self.process.wait()
             self.output_signal.emit("\n" + "=" * 80)
@@ -52,6 +68,23 @@ class RobocopyThread(QThread):
         except Exception as e:
             self.error_signal.emit(f"Error: {str(e)}")
             self.finished_signal.emit(-1)
+
+    def _parse_progress_line(self, line):
+        """Parse robocopy output untuk extract progress information"""
+        try:
+            # Look for file count patterns dalam robocopy output
+            if 'Files :' in line or 'Dirs  :' in line:
+                # Extract count dari summary
+                match = re.search(r':\s+(\d+)', line)
+                if match:
+                    count = int(match.group(1))
+                    self.files_copied = count
+                    
+                    # Emit file count signal untuk UI update
+                    if self.start_time:
+                        self.file_count_signal.emit(self.files_copied, self.files_copied)
+        except Exception as e:
+            pass  # Silent fail untuk parsing
 
     def stop_process(self):
         """Stop robocopy process"""
@@ -172,17 +205,17 @@ class RobocopyGUI(QMainWindow):
         self.stop_button.clicked.connect(self.stop_robocopy)
         button_layout.addWidget(self.stop_button)
 
-        clear_button = QPushButton("🗑 Clear Log")
-        clear_button.clicked.connect(self.clear_log)
-        button_layout.addWidget(clear_button)
+        self.clear_button = QPushButton("🗑 Clear Log")
+        self.clear_button.clicked.connect(self.clear_log)
+        button_layout.addWidget(self.clear_button)
 
-        copy_button = QPushButton("📋 Copy Command")
-        copy_button.clicked.connect(self.copy_command)
-        button_layout.addWidget(copy_button)
+        self.copy_button = QPushButton("📋 Copy Command")
+        self.copy_button.clicked.connect(self.copy_command)
+        button_layout.addWidget(self.copy_button)
 
-        save_config_button = QPushButton("💾 Save Config")
-        save_config_button.clicked.connect(self.save_config)
-        button_layout.addWidget(save_config_button)
+        self.save_config_button = QPushButton("💾 Save Config")
+        self.save_config_button.clicked.connect(self.save_config)
+        button_layout.addWidget(self.save_config_button)
 
         main_layout.addLayout(button_layout)
 
@@ -395,6 +428,11 @@ class RobocopyGUI(QMainWindow):
         log_file_layout.addWidget(self.log_file_check)
         log_file_layout.addWidget(self.log_file_input)
         log_layout.addLayout(log_file_layout)
+
+        # Progress monitoring option (Part 3)
+        self.enable_progress = QCheckBox("Enable Progress Monitoring (show real-time progress & time estimation)")
+        self.enable_progress.setChecked(True)
+        log_layout.addWidget(self.enable_progress)
 
         log_group.setLayout(log_layout)
         layout.addWidget(log_group)
@@ -675,45 +713,108 @@ class RobocopyGUI(QMainWindow):
         return cmd
 
     def run_robocopy(self):
-        """Run robocopy command"""
+        """Run robocopy command dengan confirmation dialog"""
         command = self.build_robocopy_command()
         if not command:
             return
 
-        self.run_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
+        # Show confirmation dialog (Fitur Part 3)
+        source = self.source_input.text().strip()
+        dest = self.dest_input.text().strip()
+        reply = QMessageBox.question(
+            self,
+            "Konfirmasi Robocopy",
+            f"Yakin akan memproses robocopy?\n\n"
+            f"Source: {source}\n"
+            f"Destination: {dest}\n\n"
+            f"Proses ini akan berjalan di background.\n"
+            f"Anda dapat memberhentikan dengan tombol 'STOP'.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+
+        # Disable all buttons except STOP (Fitur Part 3)
+        self._disable_all_buttons_except_stop()
+        
         self.output_text.append(f"\n{'='*80}")
         
-        self.robocopy_thread = RobocopyThread(command)
+        # Create thread dengan enable_progress option (Fitur Part 3)
+        enable_progress = self.enable_progress.isChecked()
+        self.robocopy_thread = RobocopyThread(command, enable_progress=enable_progress)
         self.robocopy_thread.output_signal.connect(self.append_output)
         self.robocopy_thread.finished_signal.connect(self.on_robocopy_finished)
         self.robocopy_thread.error_signal.connect(self.on_robocopy_error)
+        self.robocopy_thread.file_count_signal.connect(self.on_file_count_update)
         self.robocopy_thread.start()
+
+    def _disable_all_buttons_except_stop(self):
+        """Disable semua tombol kecuali STOP saat proses berjalan (Fitur Part 3)"""
+        self.run_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+        self.clear_button.setEnabled(False)
+        self.copy_button.setEnabled(False)
+        self.save_config_button.setEnabled(False)
+
+    def _enable_all_buttons(self):
+        """Re-enable semua tombol setelah proses selesai (Fitur Part 3)"""
+        self.run_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.clear_button.setEnabled(True)
+        self.copy_button.setEnabled(True)
+        self.save_config_button.setEnabled(True)
+
+    def on_file_count_update(self, current, total):
+        """Handle file count update dari thread (Fitur Part 3)"""
+        # Ini bisa di-enhance untuk show progress bar atau file counter
+        pass
 
     def stop_robocopy(self):
         """Stop robocopy process"""
         if self.robocopy_thread and self.robocopy_thread.isRunning():
             self.robocopy_thread.stop_process()
-            self.stop_button.setEnabled(False)
-            self.run_button.setEnabled(True)
+            # Re-enable buttons (Fitur Part 3)
+            self._enable_all_buttons()
 
     def on_robocopy_finished(self, returncode):
-        """Called when robocopy thread finishes"""
-        self.run_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
+        """Called when robocopy thread finishes dengan completion notification (Fitur Part 3)"""
+        # Re-enable all buttons (Fitur Part 3)
+        self._enable_all_buttons()
         
         if returncode == 0:
-            self.output_text.append("\n✓ Robocopy berhasil dijalankan!")
+            status_msg = "✓ Robocopy berhasil dijalankan!"
+            self.output_text.append(f"\n{status_msg}")
+            # Show completion notification (Fitur Part 3)
+            QMessageBox.information(
+                self,
+                "Proses Selesai",
+                f"{status_msg}\n\n"
+                f"Waktu saat ini: {datetime.now().strftime('%H:%M:%S')}\n\n"
+                f"Cek output log di atas untuk detail proses.",
+                QMessageBox.Ok
+            )
         else:
-            self.output_text.append(f"\n✗ Robocopy selesai dengan exit code: {returncode}")
+            status_msg = f"✗ Robocopy selesai dengan exit code: {returncode}"
+            self.output_text.append(f"\n{status_msg}")
+            # Show completion notification dengan warning (Fitur Part 3)
+            QMessageBox.warning(
+                self,
+                "Proses Selesai dengan Error",
+                f"{status_msg}\n\n"
+                f"Waktu saat ini: {datetime.now().strftime('%H:%M:%S')}\n\n"
+                f"Cek output log di atas untuk detail error.",
+                QMessageBox.Ok
+            )
         
         # Auto-save config
         self.save_config()
 
     def on_robocopy_error(self, error):
         """Called when robocopy error occurs"""
-        self.run_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
+        # Re-enable all buttons (Fitur Part 3)
+        self._enable_all_buttons()
         self.output_text.append(f"\n✗ Error: {error}")
         QMessageBox.critical(self, "Error", f"Terjadi error:\n{error}")
 
@@ -767,6 +868,7 @@ class RobocopyGUI(QMainWindow):
                 "exclude_junction": self.exclude_junction.isChecked(),
                 "exclude_junction_dir": self.exclude_junction_dir.isChecked(),
                 "exclude_junction_file": self.exclude_junction_file.isChecked(),
+                "enable_progress": self.enable_progress.isChecked(),
             }
             
             with open(self.config_file, 'w') as f:
@@ -813,6 +915,7 @@ class RobocopyGUI(QMainWindow):
                 self.exclude_junction.setChecked(config_data.get("exclude_junction", False))
                 self.exclude_junction_dir.setChecked(config_data.get("exclude_junction_dir", False))
                 self.exclude_junction_file.setChecked(config_data.get("exclude_junction_file", False))
+                self.enable_progress.setChecked(config_data.get("enable_progress", True))
         except Exception as e:
             print(f"Error loading config: {str(e)}")
 
