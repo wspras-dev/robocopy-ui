@@ -14,8 +14,69 @@ from PyQt5.QtWidgets import (
     QComboBox, QSpinBox, QFileDialog, QMessageBox, QTabWidget,
     QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize
-from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap
+from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer
+from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush
+
+
+class AnimationThread(QThread):
+    """Thread untuk animasi gradient background saat copy berlangsung"""
+    color_change_signal = pyqtSignal(QLinearGradient)
+    
+    def __init__(self, duration=5000):  # 5 second animation cycle
+        super().__init__()
+        self.duration = duration
+        self.is_running = True
+        self.start_time = time.time()
+        self.color_palettes = [
+            [(255, 100, 100), (255, 200, 100)],   # Red to Orange
+            [(255, 200, 100), (100, 200, 255)],   # Orange to Blue
+            [(100, 200, 255), (100, 255, 200)],   # Blue to Green
+            [(100, 255, 200), (200, 100, 255)],   # Green to Purple
+            [(200, 100, 255), (255, 100, 150)],   # Purple to Pink
+        ]
+        self.current_palette_idx = 0
+    
+    def run(self):
+        while self.is_running:
+            elapsed = (time.time() - self.start_time) % (self.duration / 1000)
+            progress = (elapsed / (self.duration / 1000)) % 1.0
+            
+            # Get current and next color palette
+            palette = self.color_palettes[self.current_palette_idx]
+            next_idx = (self.current_palette_idx + 1) % len(self.color_palettes)
+            next_palette = self.color_palettes[next_idx]
+            
+            # Interpolate colors
+            if progress < 0.5:
+                # Animate within current palette
+                color_progress = progress * 2
+                start_color = palette[0]
+                end_color = palette[1]
+            else:
+                # Transition to next palette
+                color_progress = (progress - 0.5) * 2
+                start_color = palette[1]
+                end_color = next_palette[0]
+                if color_progress >= 1.0:
+                    self.current_palette_idx = next_idx
+            
+            # Interpolate RGB values
+            r1, g1, b1 = start_color
+            r2, g2, b2 = end_color
+            r = int(r1 + (r2 - r1) * min(color_progress, 1.0))
+            g = int(g1 + (g2 - g1) * min(color_progress, 1.0))
+            b = int(b1 + (b2 - b1) * min(color_progress, 1.0))
+            
+            # Create gradient
+            gradient = QLinearGradient(0, 0, 0, 1)
+            gradient.setColorAt(0, QColor(r, g, b))
+            gradient.setColorAt(1, QColor(min(r + 50, 255), min(g + 50, 255), min(b + 50, 255)))
+            
+            self.color_change_signal.emit(gradient)
+            time.sleep(0.05)  # Update every 50ms
+    
+    def stop(self):
+        self.is_running = False
 
 
 class RobocopyThread(QThread):
@@ -101,6 +162,7 @@ class RobocopyGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.robocopy_thread = None
+        self.animation_thread = None
         self.config_file = Path("config.conf")
         self.init_ui()
         self.setWindowTitle("Robocopy UI - Advanced File Copy Tool")
@@ -314,6 +376,19 @@ class RobocopyGUI(QMainWindow):
 
         attr_group.setLayout(attr_layout)
         layout.addWidget(attr_group)
+
+        # Animation group (Part 4)
+        anim_group = QGroupBox("Animation & Effects (Part 4)")
+        anim_layout = QVBoxLayout()
+
+        self.enable_animation = QCheckBox("🎨 Enable Animated Gradient Background During Copy")
+        self.enable_animation.setChecked(False)
+        anim_layout.addWidget(self.enable_animation)
+
+        anim_layout.addWidget(QLabel("Saat copy berlangsung, background form akan menampilkan animasi\ngradient dengan perubahan warna untuk visualisasi proses copy."))
+        
+        anim_group.setLayout(anim_layout)
+        layout.addWidget(anim_group)
 
         layout.addStretch()
         widget.setLayout(layout)
@@ -615,8 +690,14 @@ class RobocopyGUI(QMainWindow):
         return widget
 
     def browse_folder(self, input_widget):
-        """Browse folder dialog"""
-        folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+        """Browse folder dialog - opens at last used folder from input_widget"""
+        # Get current path from input widget
+        current_path = input_widget.text().strip()
+        
+        # If path exists and is a directory, use it as starting point
+        start_dir = current_path if current_path and os.path.isdir(current_path) else ""
+        
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder", start_dir)
         if folder:
             input_widget.setText(folder)
 
@@ -741,6 +822,12 @@ class RobocopyGUI(QMainWindow):
         
         self.output_text.append(f"\n{'='*80}")
         
+        # Start animation if enabled (Part 4)
+        if self.enable_animation.isChecked():
+            self.animation_thread = AnimationThread()
+            self.animation_thread.color_change_signal.connect(self.apply_animated_gradient)
+            self.animation_thread.start()
+        
         # Create thread dengan enable_progress option (Fitur Part 3)
         enable_progress = self.enable_progress.isChecked()
         self.robocopy_thread = RobocopyThread(command, enable_progress=enable_progress)
@@ -771,15 +858,44 @@ class RobocopyGUI(QMainWindow):
         # Ini bisa di-enhance untuk show progress bar atau file counter
         pass
 
+    def apply_animated_gradient(self, gradient):
+        """Apply animated gradient to main widget (Part 4)"""
+        main_widget = self.centralWidget()
+        if main_widget:
+            palette = main_widget.palette()
+            # Set background gradient
+            palette.setBrush(main_widget.backgroundRole(), QBrush(gradient))
+            main_widget.setPalette(palette)
+            main_widget.setAutoFillBackground(True)
+
+    def stop_animation(self):
+        """Stop animation thread (Part 4)"""
+        if self.animation_thread and self.animation_thread.isRunning():
+            self.animation_thread.stop()
+            self.animation_thread.wait()
+            
+            # Reset background to default
+            main_widget = self.centralWidget()
+            if main_widget:
+                palette = main_widget.palette()
+                palette.setBrush(main_widget.backgroundRole(), QBrush())
+                main_widget.setPalette(palette)
+                main_widget.setAutoFillBackground(False)
+
     def stop_robocopy(self):
         """Stop robocopy process"""
         if self.robocopy_thread and self.robocopy_thread.isRunning():
             self.robocopy_thread.stop_process()
+            # Stop animation (Part 4)
+            self.stop_animation()
             # Re-enable buttons (Fitur Part 3)
             self._enable_all_buttons()
 
     def on_robocopy_finished(self, returncode):
         """Called when robocopy thread finishes dengan completion notification (Fitur Part 3)"""
+        # Stop animation (Part 4)
+        self.stop_animation()
+        
         # Re-enable all buttons (Fitur Part 3)
         self._enable_all_buttons()
         
@@ -813,6 +929,9 @@ class RobocopyGUI(QMainWindow):
 
     def on_robocopy_error(self, error):
         """Called when robocopy error occurs"""
+        # Stop animation (Part 4)
+        self.stop_animation()
+        
         # Re-enable all buttons (Fitur Part 3)
         self._enable_all_buttons()
         self.output_text.append(f"\n✗ Error: {error}")
@@ -869,6 +988,7 @@ class RobocopyGUI(QMainWindow):
                 "exclude_junction_dir": self.exclude_junction_dir.isChecked(),
                 "exclude_junction_file": self.exclude_junction_file.isChecked(),
                 "enable_progress": self.enable_progress.isChecked(),
+                "enable_animation": self.enable_animation.isChecked(),
             }
             
             with open(self.config_file, 'w') as f:
@@ -916,6 +1036,7 @@ class RobocopyGUI(QMainWindow):
                 self.exclude_junction_dir.setChecked(config_data.get("exclude_junction_dir", False))
                 self.exclude_junction_file.setChecked(config_data.get("exclude_junction_file", False))
                 self.enable_progress.setChecked(config_data.get("enable_progress", True))
+                self.enable_animation.setChecked(config_data.get("enable_animation", False))
         except Exception as e:
             print(f"Error loading config: {str(e)}")
 

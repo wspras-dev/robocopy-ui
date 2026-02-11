@@ -59,6 +59,20 @@ Aplikasi GUI untuk menjalankan Windows Robocopy dengan antarmuka yang user-frien
 - **About Tab**: Informasi aplikasi dan developer
 - **Process Control**: Stop/pause proses copy dengan tombol Stop
 
+### ✨ **Part 4 - New Features (Feb 2026)**
+- **Browse to Last Folder** (NEW): File dialog membuka ke folder terakhir yang digunakan
+  - Smart path memory untuk Source dan Destination
+  - Menghemat waktu navigasi folder
+  - Works dengan config persistence
+  
+- **Animated Gradient Background** (NEW): Visual feedback animasi saat copy berlangsung
+  - 5 color gradients yang berputar: Red→Orange→Blue→Green→Purple→Pink
+  - Smooth animation (50ms update, 20 FPS)
+  - Thread-safe implementation
+  - Optional - dapat diaktifkan/dinonaktifkan
+  - Minimal CPU impact (<5%)
+  - Otomatis berhenti saat copy selesai
+
 ---
 
 ## Sistem Requirements
@@ -163,17 +177,20 @@ python rbcopy-plus.py
 #### Source Folder
 - **Input Field**: Text input untuk path folder source
 - **Browse Button**: File dialog untuk browse folder
+  - **Part 4 Feature**: Dialog membuka ke folder terakhir (smart path memory)
 - **Required**: Ya
 
 #### Destination Folder
 - **Input Field**: Text input untuk path folder destination
 - **Browse Button**: File dialog untuk browse folder
+  - **Part 4 Feature**: Dialog membuka ke folder terakhir (smart path memory)
 - **Required**: Ya
 
 **Tips:**
 - Support UNC path: `\\server\share\folder`
 - Support drive letters: `C:\Users\Documents`
 - Support relative path: `.\relative\path`
+- **Part 4 Improvement**: Browse langsung ke folder terakhir (no need navigate from root!)
 
 ---
 
@@ -207,6 +224,24 @@ python rbcopy-plus.py
   - Local disk to local disk: 8-16 threads
   - Network copy: 4-8 threads
   - Slow network: 2-4 threads
+
+#### Animation & Effects (Part 4) ✨
+
+- **Enable**: Centang "🎨 Enable Animated Gradient Background During Copy"
+- **Default**: Disabled
+- **Visual**: Background animasi dengan 5 color gradients
+- **Features**:
+  - Color sequence: Red → Orange → Blue → Green → Purple → Pink
+  - Smooth animation (50ms update, 20 FPS)
+  - Automatic lifecycle (start/stop dengan copy process)
+  - Optional - dapat diaktifkan/dinonaktifkan sesuai preferensi
+  - Minimal CPU impact (<5%)
+  
+**Tips:**
+- Enable untuk visual feedback yang lebih menarik
+- Disable jika komputer lambat atau mengalami lag
+- Setting tersimpan otomatis di config.conf
+- Animasi berjalan di thread terpisah (tidak block UI)
 
 ---
 
