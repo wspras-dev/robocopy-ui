@@ -564,7 +564,7 @@ class RobocopyGUI(QMainWindow):
         self.animation_thread = None
         self.config_file = Path("config.conf")
         self.init_ui()
-        self.setWindowTitle("Robocopy UI - Advanced File Copy Tool")
+        self.setWindowTitle("RBCopy Plus - Advanced File Copy Tool (r1.6)")
         self.setGeometry(100, 100, 1200, 800)
         self.setup_window_icon()
         self.load_config()
@@ -613,7 +613,7 @@ class RobocopyGUI(QMainWindow):
         main_layout = QVBoxLayout(main_widget)
 
         # Title
-        title_label = QLabel("Robocopy Advanced GUI")
+        title_label = QLabel("RBCopy Plus")
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -681,12 +681,12 @@ class RobocopyGUI(QMainWindow):
         main_layout.addLayout(button_layout)
 
     def create_source_dest_tab(self):
-        """Tab untuk source dan destination folder dengan dual-pane explorer (Part 5)"""
+        """Tab untuk source dan destination folder dengan dual-pane explorer """
         widget = QWidget()
         layout = QVBoxLayout()
 
         # Title
-        title = QLabel("Source & Destination File Explorer (Part 5)")
+        title = QLabel("Source & Destination File Explorer ")
         title_font = QFont()
         title_font.setBold(True)
         title.setFont(title_font)
@@ -1129,12 +1129,12 @@ class RobocopyGUI(QMainWindow):
         app_info_text = QTextEdit()
         app_info_text.setReadOnly(True)
         app_info_text.setText("""
-        <b>Robocopy Advanced GUI</b><br><br>
-        <b>Version:</b> 1.0.0<br>
+        <b>RBCopy Plus</b><br><br>
+        <b>Version:</b> 1.6.0<br>
         <b>Release Date:</b> February 2026<br><br>
         
         <b>Description:</b><br>
-        Robocopy Advanced GUI adalah aplikasi antarmuka grafis yang dirancang untuk 
+        RBCopy Plus adalah aplikasi antarmuka grafis yang dirancang untuk 
         memudahkan pengguna Windows dalam menjalankan perintah Robocopy (Robust File Copy) 
         dengan parameter yang dapat dikonfigurasi melalui GUI yang user-friendly.<br><br>
         
@@ -1172,7 +1172,7 @@ class RobocopyGUI(QMainWindow):
         • Widayat S Prasetiyo<br>
         • wspras@yahoo.com<br><br>
 
-        <b>Project:</b> Robocopy Advanced GUI<br><br>
+        <b>Project:</b> RBCopy Plus<br><br>
         <b>Repository:</b>  github.com/wspras-dev/robocopy-ui<br><br>
         
         <b>Technologies Used:</b><br>
