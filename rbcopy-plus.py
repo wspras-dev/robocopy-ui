@@ -755,7 +755,8 @@ class RobocopyGUI(QMainWindow):
         # Source file explorer
         self.source_explorer = FileExplorerWidget()
         self.source_explorer.path_changed.connect(self.on_source_path_changed)
-        self.source_explorer.drop_requested.connect(self.on_drop_to_destination)
+        # Connect to FileListWidget's drop signal directly for drag-drop
+        self.source_explorer.file_list.drop_requested.connect(self.on_drop_to_destination)
         self.source_input.textChanged.connect(self.on_source_input_changed)
         source_layout.addWidget(self.source_explorer)
         
@@ -780,7 +781,8 @@ class RobocopyGUI(QMainWindow):
         # Destination file explorer
         self.dest_explorer = FileExplorerWidget()
         self.dest_explorer.path_changed.connect(self.on_dest_path_changed)
-        self.dest_explorer.drop_requested.connect(self.on_drop_to_source)
+        # Connect to FileListWidget's drop signal directly for drag-drop
+        self.dest_explorer.file_list.drop_requested.connect(self.on_drop_to_source)
         self.dest_input.textChanged.connect(self.on_dest_input_changed)
         dest_layout.addWidget(self.dest_explorer)
         
