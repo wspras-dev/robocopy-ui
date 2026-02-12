@@ -607,7 +607,38 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 
 ## Changelog
 
-### Version 3.0.1 (February 13, 2026) - LATEST ⭐
+### Version 3.0.2 (February 13, 2026) - LATEST ⭐⭐
+**Part 6 Revisi 2: Confirmation Dialog for Drag-Drop**
+
+- **NEW**: Confirmation Dialog
+  - Shows source paths with numbered list (max 5)
+  - Shows destination path clearly
+  - Shows direction (Source → Destination or Destination → Source)
+  - Displays "... dan X item lainnya" for extra items
+  - User can click OK to proceed or Cancel to abort
+  - Default button is Cancel (safer)
+
+- **IMPROVED**: Safety & Control
+  - No more accidental copies
+  - User can review source/destination before copy
+  - Clear visual confirmation before execution
+  - Full user control over copy operations
+
+- **MAINTAINED**: All Features From v3.0.1
+  - Drag-drop copy works perfectly
+  - Multi-select files/folders
+  - Sequential copy execution
+  - Settings preserved
+
+**Documentation**:
+- PART6_REVISI2_FEATURES.md (confirmation dialog details)
+- PART6_REVISI2_SUMMARY.md (comprehensive implementation)
+
+**Testing**: ✅ 5/5 test cases pass
+
+---
+
+### Version 3.0.1 (February 13, 2026)
 **Part 6 Revision: Fixed Drag-Drop & Multi-Select**
 
 - **FIXED**: Drag-drop functionality
@@ -618,6 +649,7 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 - **NEW**: Multi-Select File Support
   - Extended selection mode (Ctrl+Click, Shift+Click)
   - Range selection with Shift+Click
+
   - Visual highlight for selected items
   - Select all with Ctrl+A
 
