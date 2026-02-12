@@ -813,6 +813,36 @@ class RobocopyGUI(QMainWindow):
         if path and os.path.isdir(path):
             self.dest_explorer.set_path(path)
     
+    def _build_confirmation_message(self, source_paths, dest_path, direction):
+        """Build confirmation message dengan detail paths"""
+        # Format source/destination paths dengan numbered list
+        if isinstance(source_paths, list):
+            paths_text = "\n".join([f"  {i+1}. {p}" for i, p in enumerate(source_paths[:5])])
+            if len(source_paths) > 5:
+                paths_text += f"\n  ... dan {len(source_paths) - 5} item lainnya"
+        else:
+            paths_text = f"  • {source_paths}"
+        
+        # Get folder/file count and size info
+        total_items = len(source_paths) if isinstance(source_paths, list) else 1
+        item_type = "item" if total_items == 1 else "items"
+        
+        message = f"""Konfirmasi Copy Operation
+
+Direction: {direction}
+
+Sumber ({total_items} {item_type}):
+{paths_text}
+
+Tujuan:
+  • {dest_path}
+
+Apakah Anda yakin ingin melanjutkan proses copy?
+
+Tekan OK untuk lanjut atau Cancel untuk batal."""
+        
+        return message
+    
     def on_drop_to_destination(self, source_paths):
         """Handle drag-drop dari source ke destination dengan support multiple files/folders"""
         # Ensure source_paths is list
@@ -838,6 +868,19 @@ class RobocopyGUI(QMainWindow):
         if not os.path.isdir(dest_path):
             QMessageBox.warning(self, "Error", f"Destination path tidak valid: {dest_path}")
             return
+        
+        # Show confirmation dialog dengan detail source dan destination
+        confirmation_text = self._build_confirmation_message(source_paths, dest_path, "Source → Destination")
+        reply = QMessageBox.question(
+            self,
+            "Confirm Copy Operation",
+            confirmation_text,
+            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.Cancel
+        )
+        
+        if reply != QMessageBox.Ok:
+            return  # User cancelled
         
         # Proses setiap source path
         for source_path in source_paths:
@@ -882,6 +925,19 @@ class RobocopyGUI(QMainWindow):
         if not os.path.isdir(source_path):
             QMessageBox.warning(self, "Error", f"Source path tidak valid: {source_path}")
             return
+        
+        # Show confirmation dialog dengan detail source dan destination
+        confirmation_text = self._build_confirmation_message(dest_paths, source_path, "Destination → Source")
+        reply = QMessageBox.question(
+            self,
+            "Confirm Copy Operation",
+            confirmation_text,
+            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.Cancel
+        )
+        
+        if reply != QMessageBox.Ok:
+            return  # User cancelled
         
         # Proses setiap destination path
         for dest_path in dest_paths:
