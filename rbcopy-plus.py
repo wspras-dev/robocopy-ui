@@ -921,6 +921,12 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         self.source_explorer.set_path(copy_info['source'])
         self.include_files.setText(copy_info['include'])
         
+        # Debug: log pending copy info
+        try:
+            self.output_text.append(f"[DEBUG] Processing copy: source={copy_info['source']} include={copy_info['include']}")
+        except Exception:
+            pass
+
         # Set flag dan execute
         self._skip_confirmation = True
         self.run_robocopy()
@@ -1004,6 +1010,12 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         self.dest_explorer.set_path(copy_info['dest'])
         self.include_files.setText(copy_info['include'])
         
+        # Debug: log pending reverse copy info
+        try:
+            self.output_text.append(f"[DEBUG] Processing reverse copy: dest={copy_info['dest']} include={copy_info['include']}")
+        except Exception:
+            pass
+
         # Set flag dan execute
         self._skip_confirmation = True
         self.run_robocopy()
@@ -1492,8 +1504,16 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
     def run_robocopy(self):
         """Run robocopy command dengan confirmation dialog (skip jika dari drag-drop)"""
         command = self.build_robocopy_command()
-        if not command:
-            return
+        # Debug: show built command or warning
+        try:
+            if not command:
+                self.output_text.append("[DEBUG] build_robocopy_command() returned None or empty")
+                return
+            else:
+                self.output_text.append(f"[DEBUG] Built command: {command}")
+        except Exception:
+            # If output_text not available for some reason, fallback to print
+            print(f"[DEBUG] Built command: {command}")
 
         # Show confirmation dialog hanya jika tidak dari drag-drop
         if not self._skip_confirmation:
