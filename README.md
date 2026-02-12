@@ -607,6 +607,55 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 
 ## Changelog
 
+### Version 3.0.1 (February 13, 2026) - LATEST ⭐
+**Part 6 Revision: Fixed Drag-Drop & Multi-Select**
+
+- **FIXED**: Drag-drop functionality
+  - Was broken in v3.0.0, now fully working
+  - Proper MIME data handling (URL format + text fallback)
+  - Works with single and multiple files/folders
+
+- **NEW**: Multi-Select File Support
+  - Extended selection mode (Ctrl+Click, Shift+Click)
+  - Range selection with Shift+Click
+  - Visual highlight for selected items
+  - Select all with Ctrl+A
+
+- **NEW**: Multiple File Drag-Drop
+  - Drag multiple selected files to other pane
+  - Sequential copy execution (0.5s delay between)
+  - Each item copied with preserved settings
+  - Clear logging for each operation
+
+- **IMPROVED**: MIME Data Handling
+  - URL format (file:///) for better compatibility
+  - Text fallback format support
+  - Proper path encoding and parsing
+  - Enhanced error handling
+
+- **IMPROVED**: Error Handling & Validation
+  - Path validation before copy
+  - User-friendly error dialogs
+  - Clear error messages
+  - Graceful failure handling
+
+- **MAINTAINED**: 100% backward compatibility
+  - All v3.0.0 features still work
+  - Config files compatible
+  - Settings preserved
+  - No breaking changes
+
+**Documentation**:
+- PART6_REVISION_FEATURES.md (600+ lines)
+- PART6_REVISION_IMPLEMENTATION.md (900+ lines)
+- PART6_REVISION_QUICK_START.md (650+ lines)
+- CHANGELOG_PART6_REVISION.md (450+ lines)
+- PART6_REVISION_SUMMARY.md (comprehensive)
+
+**Testing**: ✅ 22/22 tests pass
+
+---
+
 ### Version 3.0.0 (February 12, 2026)
 - **NEW**: Context Menu Integration
   - Right-click file/folder untuk quick actions
