@@ -883,29 +883,49 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         if reply != QMessageBox.Ok:
             return  # User cancelled
         
-        # Proses setiap source path dengan format robocopy yang tepat
+        # Store paths untuk processing
+        self._pending_copies = []
         for source_path in source_paths:
             if os.path.isfile(source_path):
                 # For files: source = parent directory, include file name in pattern
                 source_dir = os.path.dirname(source_path)
                 file_name = os.path.basename(source_path)
-                
-                self.source_input.setText(source_dir)
-                self.source_explorer.set_path(source_dir)
-                self.include_files.setText(file_name)
+                self._pending_copies.append({
+                    'source': source_dir,
+                    'include': file_name,
+                    'type': 'file'
+                })
             else:
                 # For folders: use the folder path directly
-                self.source_input.setText(source_path)
-                self.source_explorer.set_path(source_path)
-            
-            # Set flag untuk skip confirmation di run_robocopy
-            self._skip_confirmation = True
-            
-            # Trigger robocopy - will NOT show confirmation dialog
-            self.run_robocopy()
-            
-            # Delay antara copy operations untuk allow UI update
-            time.sleep(1.0)
+                self._pending_copies.append({
+                    'source': source_path,
+                    'include': '*.*',
+                    'type': 'folder'
+                })
+        
+        # Start processing pending copies
+        self._process_next_copy()
+    
+    def _process_next_copy(self):
+        """Process next pending copy operation"""
+        if not hasattr(self, '_pending_copies') or not self._pending_copies:
+            return
+        
+        # Get next copy
+        copy_info = self._pending_copies.pop(0)
+        
+        # Set paths
+        self.source_input.setText(copy_info['source'])
+        self.source_explorer.set_path(copy_info['source'])
+        self.include_files.setText(copy_info['include'])
+        
+        # Set flag dan execute
+        self._skip_confirmation = True
+        self.run_robocopy()
+        
+        # Schedule next copy after delay (if more pending)
+        if self._pending_copies:
+            QTimer.singleShot(2000, self._process_next_copy)  # 2 second delay untuk next copy
     
     def on_drop_to_source(self, dest_paths):
         """Handle drag-drop dari destination ke source (reverse copy) dengan multi-file support"""
@@ -946,29 +966,49 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         if reply != QMessageBox.Ok:
             return  # User cancelled
         
-        # Proses setiap destination path dengan format robocopy yang tepat
+        # Store paths untuk processing
+        self._pending_copies = []
         for dest_path in dest_paths:
             if os.path.isfile(dest_path):
                 # For files: destination = parent directory, include file name in pattern
                 dest_dir = os.path.dirname(dest_path)
                 file_name = os.path.basename(dest_path)
-                
-                self.dest_input.setText(dest_dir)
-                self.dest_explorer.set_path(dest_dir)
-                self.include_files.setText(file_name)
+                self._pending_copies.append({
+                    'dest': dest_dir,
+                    'include': file_name,
+                    'type': 'file'
+                })
             else:
                 # For folders: use the folder path directly
-                self.dest_input.setText(dest_path)
-                self.dest_explorer.set_path(dest_path)
-            
-            # Set flag untuk skip confirmation di run_robocopy
-            self._skip_confirmation = True
-            
-            # Trigger robocopy - will NOT show confirmation dialog
-            self.run_robocopy()
-            
-            # Delay antara copy operations untuk allow UI update
-            time.sleep(1.0)
+                self._pending_copies.append({
+                    'dest': dest_path,
+                    'include': '*.*',
+                    'type': 'folder'
+                })
+        
+        # Start processing pending copies (reverse direction)
+        self._process_next_copy_reverse()
+    
+    def _process_next_copy_reverse(self):
+        """Process next pending copy operation (Destination → Source)"""
+        if not hasattr(self, '_pending_copies') or not self._pending_copies:
+            return
+        
+        # Get next copy
+        copy_info = self._pending_copies.pop(0)
+        
+        # Set paths (reverse: destination in dest_input)
+        self.dest_input.setText(copy_info['dest'])
+        self.dest_explorer.set_path(copy_info['dest'])
+        self.include_files.setText(copy_info['include'])
+        
+        # Set flag dan execute
+        self._skip_confirmation = True
+        self.run_robocopy()
+        
+        # Schedule next copy after delay (if more pending)
+        if self._pending_copies:
+            QTimer.singleShot(2000, self._process_next_copy_reverse)  # 2 second delay untuk next copy
 
     def create_copy_options_tab(self):
         """Tab untuk copy options"""
