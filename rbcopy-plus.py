@@ -31,6 +31,8 @@ class FileListWidget(QListWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.setSelectionMode(self.ExtendedSelection)  # Support multi-select
+        # Enable both dragging from this widget and accepting drops onto it
+        self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.drag_start_pos = None
     
@@ -192,6 +194,26 @@ class FileListWidget(QListWidget):
     def dragEnterEvent(self, event):
         """Accept drag enter dari sumber lain"""
         if event.mimeData().hasText() or event.mimeData().hasUrls():
+            # Debug: report drag enter
+            try:
+                if hasattr(self, 'parent_explorer') and getattr(self.parent_explorer, 'parent_app', None):
+                    self.parent_explorer.parent_app.output_text.append(f"[DEBUG] FileListWidget.dragEnterEvent: mime={list(event.mimeData().formats())}")
+                else:
+                    print(f"[DEBUG] FileListWidget.dragEnterEvent: mime={list(event.mimeData().formats())}")
+            except Exception:
+                pass
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        """Accept drag move so the cursor shows allowed drop"""
+        if event.mimeData().hasText() or event.mimeData().hasUrls():
+            try:
+                if hasattr(self, 'parent_explorer') and getattr(self.parent_explorer, 'parent_app', None):
+                    self.parent_explorer.parent_app.output_text.append(f"[DEBUG] FileListWidget.dragMoveEvent: mime={list(event.mimeData().formats())}")
+                else:
+                    print(f"[DEBUG] FileListWidget.dragMoveEvent: mime={list(event.mimeData().formats())}")
+            except Exception:
+                pass
             event.acceptProposedAction()
     
     def dropEvent(self, event):
@@ -215,6 +237,18 @@ class FileListWidget(QListWidget):
                     file_paths.append(path)
         
         if file_paths:
+            # Debug: report drop event to GUI if possible
+            try:
+                if hasattr(self, 'parent_explorer') and getattr(self.parent_explorer, 'parent_app', None):
+                    self.parent_explorer.parent_app.output_text.append(f"[DEBUG] FileListWidget.dropEvent: {file_paths}")
+                else:
+                    print(f"[DEBUG] FileListWidget.dropEvent: {file_paths}")
+            except Exception:
+                try:
+                    print(f"[DEBUG] FileListWidget.dropEvent: {file_paths}")
+                except Exception:
+                    pass
+
             # Emit signal dengan list of paths
             self.drop_requested.emit(file_paths)
             event.acceptProposedAction()
@@ -753,7 +787,7 @@ class RobocopyGUI(QMainWindow):
         source_layout.addLayout(source_input_layout)
         
         # Source file explorer
-        self.source_explorer = FileExplorerWidget()
+        self.source_explorer = FileExplorerWidget(parent=self)
         self.source_explorer.path_changed.connect(self.on_source_path_changed)
         # Connect to FileListWidget's drop signal directly for drag-drop
         self.source_explorer.file_list.drop_requested.connect(self.on_drop_to_destination)
@@ -779,7 +813,7 @@ class RobocopyGUI(QMainWindow):
         dest_layout.addLayout(dest_input_layout)
         
         # Destination file explorer
-        self.dest_explorer = FileExplorerWidget()
+        self.dest_explorer = FileExplorerWidget(parent=self)
         self.dest_explorer.path_changed.connect(self.on_dest_path_changed)
         # Connect to FileListWidget's drop signal directly for drag-drop
         self.dest_explorer.file_list.drop_requested.connect(self.on_drop_to_source)
