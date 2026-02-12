@@ -14,20 +14,191 @@ from PyQt5.QtWidgets import (
     QGroupBox, QLabel, QLineEdit, QPushButton, QTextEdit, QCheckBox,
     QComboBox, QSpinBox, QFileDialog, QMessageBox, QTabWidget,
     QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea,
-    QListWidget, QListWidgetItem
+    QListWidget, QListWidgetItem, QMenu, QInputDialog
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer
-from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush
+from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer, QMimeData
+from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush, QDrag
+
+
+class FileListWidget(QListWidget):
+    """Custom QListWidget dengan support context menu dan drag-drop"""
+    context_menu_requested = pyqtSignal(str, str)  # (file_path, type)
+    drop_requested = pyqtSignal(str)  # source_path untuk drag-drop
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_explorer = parent
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+        self.setSelectionMode(self.SingleSelection)
+        self.setAcceptDrops(True)
+    
+    def show_context_menu(self, position):
+        """Show context menu when right-click"""
+        item = self.itemAt(position)
+        if not item:
+            return
+        
+        data = item.data(Qt.UserRole)
+        if not data or len(data) < 2:
+            return
+        
+        file_type = data[0]
+        file_path = data[1]
+        
+        # Create context menu dengan opsi rename dan delete
+        menu = QMenu(self)
+        
+        # Rename action
+        rename_action = menu.addAction("✏️ Rename")
+        rename_action.triggered.connect(lambda: self.rename_file(file_path))
+        
+        # Delete action
+        delete_action = menu.addAction("🗑️ Delete")
+        delete_action.triggered.connect(lambda: self.delete_file(file_path))
+        
+        menu.addSeparator()
+        
+        # Open in explorer action
+        explore_action = menu.addAction("📁 Open in Explorer")
+        explore_action.triggered.connect(lambda: self.open_in_explorer(file_path))
+        
+        # Show the menu
+        menu.exec_(self.mapToGlobal(position))
+    
+    def rename_file(self, file_path):
+        """Rename file/folder dengan confirmation dialog"""
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self.parent_explorer, "Error", "File tidak ditemukan")
+            return
+        
+        old_name = os.path.basename(file_path)
+        new_name, ok = QInputDialog.getText(
+            self.parent_explorer,
+            "Rename",
+            f"Rename '{old_name}' to:",
+            text=old_name
+        )
+        
+        if ok and new_name and new_name != old_name:
+            try:
+                parent_dir = os.path.dirname(file_path)
+                new_path = os.path.join(parent_dir, new_name)
+                
+                # Check if new name already exists
+                if os.path.exists(new_path):
+                    QMessageBox.warning(
+                        self.parent_explorer,
+                        "Error",
+                        f"'{new_name}' sudah ada di folder ini"
+                    )
+                    return
+                
+                os.rename(file_path, new_path)
+                self.parent_explorer.load_files()
+                QMessageBox.information(self.parent_explorer, "Success", f"File berhasil di-rename")
+            except Exception as e:
+                QMessageBox.critical(self.parent_explorer, "Error", f"Gagal rename: {str(e)}")
+    
+    def delete_file(self, file_path):
+        """Delete file/folder dengan confirmation dialog"""
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self.parent_explorer, "Error", "File tidak ditemukan")
+            return
+        
+        item_name = os.path.basename(file_path)
+        is_dir = os.path.isdir(file_path)
+        
+        # Confirmation dialog
+        reply = QMessageBox.question(
+            self.parent_explorer,
+            "Confirm Delete",
+            f"Apakah Anda yakin ingin menghapus '{item_name}'?" + 
+            (" (dan semua isinya)" if is_dir else ""),
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                if is_dir:
+                    shutil.rmtree(file_path)
+                else:
+                    os.remove(file_path)
+                self.parent_explorer.load_files()
+                QMessageBox.information(self.parent_explorer, "Success", f"File berhasil dihapus")
+            except Exception as e:
+                QMessageBox.critical(self.parent_explorer, "Error", f"Gagal hapus: {str(e)}")
+    
+    def open_in_explorer(self, file_path):
+        """Open file/folder in explorer"""
+        try:
+            if sys.platform == 'win32':
+                if os.path.isdir(file_path):
+                    os.startfile(file_path)
+                else:
+                    subprocess.Popen(f'explorer /select,"{file_path}"')
+        except Exception as e:
+            QMessageBox.warning(self.parent_explorer, "Error", f"Gagal membuka: {str(e)}")
+    
+    def mousePressEvent(self, event):
+        """Handle mouse press untuk drag-drop"""
+        if event.button() == Qt.LeftButton:
+            self.drag_start_pos = event.pos()
+        super().mousePressEvent(event)
+    
+    def mouseMoveEvent(self, event):
+        """Handle mouse move untuk drag-drop"""
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        
+        if (event.pos() - self.drag_start_pos).manhattanLength() < QApplication.startDragDistance():
+            return
+        
+        # Get current item
+        item = self.itemAt(self.drag_start_pos)
+        if not item:
+            return
+        
+        data = item.data(Qt.UserRole)
+        if not data:
+            return
+        
+        file_path = data[1]
+        
+        # Create drag object
+        mime_data = QMimeData()
+        mime_data.setText(file_path)
+        mime_data.setData("text/plain", file_path.encode())
+        
+        drag = QDrag(self)
+        drag.setMimeData(mime_data)
+        drag.exec_(Qt.CopyAction)
+    
+    def dragEnterEvent(self, event):
+        """Accept drag enter dari sumber lain"""
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+    
+    def dropEvent(self, event):
+        """Handle drop - emit signal ke parent"""
+        if event.mimeData().hasText():
+            source_path = event.mimeData().text()
+            if os.path.exists(source_path):
+                # Emit signal ke parent widget
+                self.drop_requested.emit(source_path)
+                event.acceptProposedAction()
 
 
 class FileExplorerWidget(QWidget):
     """Widget untuk menampilkan file dan folder explorer dengan dual-pane layout"""
     path_changed = pyqtSignal(str)  # Signal ketika user navigate folder
+    drop_requested = pyqtSignal(str)  # Signal untuk drag-drop operation (source path)
     
     def __init__(self, initial_path="", parent=None):
         super().__init__(parent)
         self.current_path = initial_path
         self.history = []
+        self.parent_app = parent  # Store parent for accessing robocopy settings
         self.init_ui()
     
     def init_ui(self):
@@ -56,9 +227,11 @@ class FileExplorerWidget(QWidget):
         nav_layout.addWidget(self.refresh_button)
         layout.addLayout(nav_layout)
         
-        # File list
-        self.file_list = QListWidget()
+        # File list with drag-drop support
+        self.file_list = FileListWidget(parent=self)
         self.file_list.itemDoubleClicked.connect(self.on_item_double_clicked)
+        self.file_list.context_menu_requested.connect(self.on_context_menu)
+        self.file_list.drop_requested.connect(self.handle_drop)
         layout.addWidget(self.file_list)
         
         # Statistics
@@ -177,6 +350,30 @@ class FileExplorerWidget(QWidget):
             self.current_path = path
             self.path_label.setText(path)
             self.load_files()
+    
+    def on_context_menu(self, file_path, file_type):
+        """Handle context menu request dari file list"""
+        if not os.path.exists(file_path):
+            return
+        
+        # Open OS context menu using subprocess
+        try:
+            if file_type == "folder":
+                # For folders, use explorer context menu
+                if sys.platform == 'win32':
+                    # Windows: Use explorer shell context menu
+                    os.startfile(file_path)
+            else:
+                # For files, open with default application or show explorer
+                if sys.platform == 'win32':
+                    # Show file in explorer
+                    subprocess.Popen(f'explorer /select,"{file_path}"')
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Cannot open context menu: {str(e)}")
+    
+    def handle_drop(self, source_path):
+        """Handle drop operation - emit signal to parent"""
+        self.drop_requested.emit(source_path)
     
     @staticmethod
     def get_file_icon(extension):
@@ -516,6 +713,7 @@ class RobocopyGUI(QMainWindow):
         # Source file explorer
         self.source_explorer = FileExplorerWidget()
         self.source_explorer.path_changed.connect(self.on_source_path_changed)
+        self.source_explorer.drop_requested.connect(self.on_drop_to_destination)
         self.source_input.textChanged.connect(self.on_source_input_changed)
         source_layout.addWidget(self.source_explorer)
         
@@ -540,6 +738,7 @@ class RobocopyGUI(QMainWindow):
         # Destination file explorer
         self.dest_explorer = FileExplorerWidget()
         self.dest_explorer.path_changed.connect(self.on_dest_path_changed)
+        self.dest_explorer.drop_requested.connect(self.on_drop_to_source)
         self.dest_input.textChanged.connect(self.on_dest_input_changed)
         dest_layout.addWidget(self.dest_explorer)
         
@@ -572,6 +771,64 @@ class RobocopyGUI(QMainWindow):
         """Update destination explorer ketika user input path"""
         if path and os.path.isdir(path):
             self.dest_explorer.set_path(path)
+    
+    def on_drop_to_destination(self, source_path):
+        """Handle drag-drop dari source ke destination"""
+        if not os.path.exists(source_path):
+            QMessageBox.warning(self, "Error", f"Source path tidak ditemukan: {source_path}")
+            return
+        
+        # Set source path
+        self.source_input.setText(source_path)
+        
+        # If source is file, get parent directory
+        if os.path.isfile(source_path):
+            source_for_copy = os.path.dirname(source_path)
+            self.source_explorer.set_path(source_for_copy)
+        else:
+            self.source_explorer.set_path(source_path)
+        
+        # Get destination
+        dest_path = self.dest_input.text().strip()
+        if not dest_path:
+            QMessageBox.warning(self, "Error", "Tentukan folder destination terlebih dahulu")
+            return
+        
+        if not os.path.isdir(dest_path):
+            QMessageBox.warning(self, "Error", f"Destination path tidak valid: {dest_path}")
+            return
+        
+        # Trigger robocopy dengan setting yang sudah ada
+        self.run_robocopy()
+    
+    def on_drop_to_source(self, dest_path):
+        """Handle drag-drop dari destination ke source (reverse copy)"""
+        if not os.path.exists(dest_path):
+            QMessageBox.warning(self, "Error", f"Destination path tidak ditemukan: {dest_path}")
+            return
+        
+        # Set destination path
+        self.dest_input.setText(dest_path)
+        
+        # If destination is file, get parent directory  
+        if os.path.isfile(dest_path):
+            dest_for_copy = os.path.dirname(dest_path)
+            self.dest_explorer.set_path(dest_for_copy)
+        else:
+            self.dest_explorer.set_path(dest_path)
+        
+        # Get source
+        source_path = self.source_input.text().strip()
+        if not source_path:
+            QMessageBox.warning(self, "Error", "Tentukan folder source terlebih dahulu")
+            return
+        
+        if not os.path.isdir(source_path):
+            QMessageBox.warning(self, "Error", f"Source path tidak valid: {source_path}")
+            return
+        
+        # Trigger robocopy dengan setting yang sudah ada
+        self.run_robocopy()
 
     def create_copy_options_tab(self):
         """Tab untuk copy options"""

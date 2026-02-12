@@ -112,6 +112,37 @@ Aplikasi GUI untuk menjalankan Windows Robocopy dengan antarmuka yang user-frien
   - Statistics displayed below setiap file list
   - Helps understand folder contents at a glance
 
+### 📦 **Part 6 - Context Menu, Rename/Delete & Drag-Drop (Feb 2026)**
+
+- **Context Menu Integration** (NEW): Right-click pada file/folder untuk quick actions
+  - Right-click menu dengan opsi manajemen file
+  - Opsi: Rename, Delete, Open in Explorer
+  - Instant access tanpa toolbar buttons
+  - Professional workflow integration
+
+- **File Rename & Delete** (NEW): File management integrated dalam aplikasi
+  - Rename file/folder dengan input dialog
+  - Delete dengan confirmation (prevents accidents)
+  - Recursive delete untuk folders (warns about contents)
+  - Duplicate name checking (prevents overwrite)
+  - Permission error handling (graceful failures)
+  - Auto-refresh explorer (shows changes immediately)
+
+- **Drag & Drop Copy** (NEW): Fast copy dengan automatic settings application
+  - Drag file/folder dari Source pane ke Destination pane
+  - Bidirectional: Source→Dest atau Dest→Source
+  - Automatic robocopy triggering dengan drag-drop
+  - Respects ALL configured settings:
+    - Multi-threading (/MT:N)
+    - Include/Exclude patterns
+    - Copy flags (/S, /E, /MIR, /MOVE, /PURGE)
+    - Attributes (/COPY:DAT, /SEC)
+    - Retry & Logging options
+    - Junction & Link settings
+  - Visual feedback saat drag
+  - Real-time progress display
+  - No need to press "Run Robocopy" button
+
 ---
 
 ## Sistem Requirements
@@ -575,6 +606,50 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 ---
 
 ## Changelog
+
+### Version 3.0.0 (February 12, 2026)
+- **NEW**: Context Menu Integration
+  - Right-click file/folder untuk quick actions
+  - Rename, Delete, Open in Explorer options
+  - Confirmation dialogs untuk safety
+  - Duplicate name prevention
+  - Permission error handling
+
+- **NEW**: File Operations
+  - Rename files/folders dengan input dialog
+  - Delete dengan confirmation (prevents accidents)
+  - Recursive delete untuk folders
+  - Auto-refresh after operations
+  - User-friendly error messages
+
+- **NEW**: Drag & Drop Copy
+  - Drag files from Source to Destination pane
+  - Bidirectional (Source↔Destination)
+  - Automatic robocopy triggering
+  - Respects ALL configured settings:
+    - Multi-threading, filters, flags, options
+    - Retry configuration, logging setup
+  - Visual feedback during drag
+  - Real-time progress display
+  - No button press needed
+
+- **NEW**: FileListWidget Class
+  - Custom QListWidget dengan context menu support
+  - Drag-drop event handling
+  - File operation methods
+  - Signal-based architecture
+
+- **IMPROVED**: File Management Workflow
+  - Integrated file operations
+  - No external tools needed
+  - Professional user experience
+  - Faster copy operations
+
+- **MAINTAINED**: 100% backward compatibility
+  - All existing features still work
+  - Old configurations load correctly
+  - No API changes
+  - Pure additive features
 
 ### Version 2.0.0 (February 12, 2026)
 - **NEW**: Dual-pane file explorer interface
