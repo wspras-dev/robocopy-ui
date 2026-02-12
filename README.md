@@ -607,7 +607,32 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 
 ## Changelog
 
-### Version 3.0.2 (February 13, 2026) - LATEST ⭐⭐
+### Version 3.0.3 (February 13, 2026) - LATEST ⭐⭐⭐
+**Part 6 Revisi 3: Fixed Drag-Drop Copy Execution**
+
+- **FIXED**: Double Confirmation Dialog Issue
+  - Removed double confirmation dialogs
+  - Only ONE confirmation dialog from drag-drop
+  - No confirmation dialog shown by `run_robocopy()` when called from drag-drop
+
+- **IMPROVED**: Drag-Drop Copy Execution
+  - Added `_skip_confirmation` flag for controlled execution
+  - File handling: parent folder as source, filename as pattern
+  - Folder handling: full folder path
+  - Increased delay between multiple operations (1.0s)
+  - More stable execution flow
+
+- **FIXED**: Robocopy Command Format
+  - Files: `robocopy "source_folder" "dest_folder" "filename.ext"`
+  - Folders: `robocopy "source_folder" "dest_folder"`
+  - Proper pattern matching in include_files field
+
+- **MAINTAINED**: All Features From v3.0.2
+  - Confirmation dialog still shows details
+  - Multi-select support
+  - Drag-drop to both directions (Source→Dest and Dest→Source)
+
+### Version 3.0.2 (February 13, 2026)
 **Part 6 Revisi 2: Confirmation Dialog for Drag-Drop**
 
 - **NEW**: Confirmation Dialog
