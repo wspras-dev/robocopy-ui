@@ -16,22 +16,23 @@ from PyQt5.QtWidgets import (
     QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea,
     QListWidget, QListWidgetItem, QMenu, QInputDialog
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer, QMimeData
+from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer, QMimeData, QUrl
 from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush, QDrag
 
 
 class FileListWidget(QListWidget):
-    """Custom QListWidget dengan support context menu dan drag-drop"""
+    """Custom QListWidget dengan support context menu, multi-select, dan drag-drop"""
     context_menu_requested = pyqtSignal(str, str)  # (file_path, type)
-    drop_requested = pyqtSignal(str)  # source_path untuk drag-drop
+    drop_requested = pyqtSignal(list)  # list of file paths untuk drag-drop (multi-select support)
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_explorer = parent
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
-        self.setSelectionMode(self.SingleSelection)
+        self.setSelectionMode(self.ExtendedSelection)  # Support multi-select
         self.setAcceptDrops(True)
+        self.drag_start_pos = None
     
     def show_context_menu(self, position):
         """Show context menu when right-click"""
@@ -147,28 +148,42 @@ class FileListWidget(QListWidget):
         super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event):
-        """Handle mouse move untuk drag-drop"""
+        """Handle mouse move untuk drag-drop dengan multiple selection support"""
         if not (event.buttons() & Qt.LeftButton):
+            return
+        
+        if self.drag_start_pos is None:
             return
         
         if (event.pos() - self.drag_start_pos).manhattanLength() < QApplication.startDragDistance():
             return
         
-        # Get current item
-        item = self.itemAt(self.drag_start_pos)
-        if not item:
+        # Get all selected items
+        selected_items = self.selectedItems()
+        if not selected_items:
             return
         
-        data = item.data(Qt.UserRole)
-        if not data:
+        # Collect all selected file paths
+        file_paths = []
+        for item in selected_items:
+            data = item.data(Qt.UserRole)
+            if data and len(data) >= 2:
+                file_path = data[1]
+                if os.path.exists(file_path):
+                    file_paths.append(file_path)
+        
+        if not file_paths:
             return
         
-        file_path = data[1]
-        
-        # Create drag object
+        # Create drag object dengan multiple file paths
         mime_data = QMimeData()
-        mime_data.setText(file_path)
-        mime_data.setData("text/plain", file_path.encode())
+        paths_text = "\n".join(file_paths)
+        mime_data.setText(paths_text)
+        mime_data.setData("text/plain", paths_text.encode())
+        
+        # Set URLs untuk file manager compatibility
+        urls = [QUrl.fromLocalFile(path) for path in file_paths]
+        mime_data.setUrls(urls)
         
         drag = QDrag(self)
         drag.setMimeData(mime_data)
@@ -176,23 +191,41 @@ class FileListWidget(QListWidget):
     
     def dragEnterEvent(self, event):
         """Accept drag enter dari sumber lain"""
-        if event.mimeData().hasText():
+        if event.mimeData().hasText() or event.mimeData().hasUrls():
             event.acceptProposedAction()
     
     def dropEvent(self, event):
-        """Handle drop - emit signal ke parent"""
-        if event.mimeData().hasText():
-            source_path = event.mimeData().text()
-            if os.path.exists(source_path):
-                # Emit signal ke parent widget
-                self.drop_requested.emit(source_path)
-                event.acceptProposedAction()
+        """Handle drop - emit signal dengan list of paths untuk multi-file support"""
+        file_paths = []
+        
+        # Try to get URLs first (more reliable)
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if path and os.path.exists(path):
+                    file_paths.append(path)
+        
+        # Fallback to text if no URLs
+        if not file_paths and event.mimeData().hasText():
+            text_data = event.mimeData().text()
+            # Support both single path dan multiple paths separated by newline
+            for path in text_data.split("\n"):
+                path = path.strip()
+                if path and os.path.exists(path):
+                    file_paths.append(path)
+        
+        if file_paths:
+            # Emit signal dengan list of paths
+            self.drop_requested.emit(file_paths)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
 
 class FileExplorerWidget(QWidget):
     """Widget untuk menampilkan file dan folder explorer dengan dual-pane layout"""
     path_changed = pyqtSignal(str)  # Signal ketika user navigate folder
-    drop_requested = pyqtSignal(str)  # Signal untuk drag-drop operation (source path)
+    drop_requested = pyqtSignal(list)  # Signal untuk drag-drop operation (list of file paths)
     
     def __init__(self, initial_path="", parent=None):
         super().__init__(parent)
@@ -371,9 +404,17 @@ class FileExplorerWidget(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Cannot open context menu: {str(e)}")
     
-    def handle_drop(self, source_path):
-        """Handle drop operation - emit signal to parent"""
-        self.drop_requested.emit(source_path)
+    def handle_drop(self, source_paths):
+        """Handle drop operation - emit signal to parent dengan support multiple paths"""
+        # Convert single path ke list jika perlu (backward compatibility)
+        if isinstance(source_paths, str):
+            source_paths = [source_paths]
+        
+        # Filter valid paths
+        valid_paths = [p for p in source_paths if os.path.exists(p)]
+        
+        if valid_paths:
+            self.drop_requested.emit(valid_paths)
     
     @staticmethod
     def get_file_icon(extension):
@@ -772,21 +813,21 @@ class RobocopyGUI(QMainWindow):
         if path and os.path.isdir(path):
             self.dest_explorer.set_path(path)
     
-    def on_drop_to_destination(self, source_path):
-        """Handle drag-drop dari source ke destination"""
-        if not os.path.exists(source_path):
-            QMessageBox.warning(self, "Error", f"Source path tidak ditemukan: {source_path}")
+    def on_drop_to_destination(self, source_paths):
+        """Handle drag-drop dari source ke destination dengan support multiple files/folders"""
+        # Ensure source_paths is list
+        if isinstance(source_paths, str):
+            source_paths = [source_paths]
+        
+        if not source_paths:
+            QMessageBox.warning(self, "Error", "No valid source paths provided")
             return
         
-        # Set source path
-        self.source_input.setText(source_path)
-        
-        # If source is file, get parent directory
-        if os.path.isfile(source_path):
-            source_for_copy = os.path.dirname(source_path)
-            self.source_explorer.set_path(source_for_copy)
-        else:
-            self.source_explorer.set_path(source_path)
+        # Validate semua paths
+        for source_path in source_paths:
+            if not os.path.exists(source_path):
+                QMessageBox.warning(self, "Error", f"Source path tidak ditemukan: {source_path}")
+                return
         
         # Get destination
         dest_path = self.dest_input.text().strip()
@@ -798,24 +839,39 @@ class RobocopyGUI(QMainWindow):
             QMessageBox.warning(self, "Error", f"Destination path tidak valid: {dest_path}")
             return
         
-        # Trigger robocopy dengan setting yang sudah ada
-        self.run_robocopy()
+        # Proses setiap source path
+        for source_path in source_paths:
+            # Set source path untuk copy
+            self.source_input.setText(source_path)
+            
+            # If source is file, get parent directory for display
+            if os.path.isfile(source_path):
+                source_for_display = os.path.dirname(source_path)
+                self.source_explorer.set_path(source_for_display)
+            else:
+                self.source_explorer.set_path(source_path)
+            
+            # Trigger robocopy dengan setting yang sudah ada
+            self.run_robocopy()
+            
+            # Optional: delay antara copy operations
+            time.sleep(0.5)
     
-    def on_drop_to_source(self, dest_path):
-        """Handle drag-drop dari destination ke source (reverse copy)"""
-        if not os.path.exists(dest_path):
-            QMessageBox.warning(self, "Error", f"Destination path tidak ditemukan: {dest_path}")
+    def on_drop_to_source(self, dest_paths):
+        """Handle drag-drop dari destination ke source (reverse copy) dengan multi-file support"""
+        # Ensure dest_paths is list
+        if isinstance(dest_paths, str):
+            dest_paths = [dest_paths]
+        
+        if not dest_paths:
+            QMessageBox.warning(self, "Error", "No valid destination paths provided")
             return
         
-        # Set destination path
-        self.dest_input.setText(dest_path)
-        
-        # If destination is file, get parent directory  
-        if os.path.isfile(dest_path):
-            dest_for_copy = os.path.dirname(dest_path)
-            self.dest_explorer.set_path(dest_for_copy)
-        else:
-            self.dest_explorer.set_path(dest_path)
+        # Validate semua paths
+        for dest_path in dest_paths:
+            if not os.path.exists(dest_path):
+                QMessageBox.warning(self, "Error", f"Destination path tidak ditemukan: {dest_path}")
+                return
         
         # Get source
         source_path = self.source_input.text().strip()
@@ -827,8 +883,23 @@ class RobocopyGUI(QMainWindow):
             QMessageBox.warning(self, "Error", f"Source path tidak valid: {source_path}")
             return
         
-        # Trigger robocopy dengan setting yang sudah ada
-        self.run_robocopy()
+        # Proses setiap destination path
+        for dest_path in dest_paths:
+            # Set destination path untuk copy
+            self.dest_input.setText(dest_path)
+            
+            # If destination is file, get parent directory for display  
+            if os.path.isfile(dest_path):
+                dest_for_display = os.path.dirname(dest_path)
+                self.dest_explorer.set_path(dest_for_display)
+            else:
+                self.dest_explorer.set_path(dest_path)
+            
+            # Trigger robocopy dengan setting yang sudah ada
+            self.run_robocopy()
+            
+            # Optional: delay antara copy operations
+            time.sleep(0.5)
 
     def create_copy_options_tab(self):
         """Tab untuk copy options"""
