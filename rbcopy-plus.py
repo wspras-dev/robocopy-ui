@@ -604,6 +604,7 @@ class RobocopyGUI(QMainWindow):
         self.robocopy_thread = None
         self.animation_thread = None
         self.config_file = Path("config.conf")
+        self._skip_confirmation = False  # Flag untuk skip confirmation saat drag-drop
         self.init_ui()
         self.setWindowTitle("RBCopy Plus - Advanced File Copy Tool (r1.6)")
         self.setGeometry(100, 100, 1200, 800)
@@ -882,23 +883,29 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         if reply != QMessageBox.Ok:
             return  # User cancelled
         
-        # Proses setiap source path
+        # Proses setiap source path dengan format robocopy yang tepat
         for source_path in source_paths:
-            # Set source path untuk copy
-            self.source_input.setText(source_path)
-            
-            # If source is file, get parent directory for display
             if os.path.isfile(source_path):
-                source_for_display = os.path.dirname(source_path)
-                self.source_explorer.set_path(source_for_display)
+                # For files: source = parent directory, include file name in pattern
+                source_dir = os.path.dirname(source_path)
+                file_name = os.path.basename(source_path)
+                
+                self.source_input.setText(source_dir)
+                self.source_explorer.set_path(source_dir)
+                self.include_files.setText(file_name)
             else:
+                # For folders: use the folder path directly
+                self.source_input.setText(source_path)
                 self.source_explorer.set_path(source_path)
             
-            # Trigger robocopy dengan setting yang sudah ada
+            # Set flag untuk skip confirmation di run_robocopy
+            self._skip_confirmation = True
+            
+            # Trigger robocopy - will NOT show confirmation dialog
             self.run_robocopy()
             
-            # Optional: delay antara copy operations
-            time.sleep(0.5)
+            # Delay antara copy operations untuk allow UI update
+            time.sleep(1.0)
     
     def on_drop_to_source(self, dest_paths):
         """Handle drag-drop dari destination ke source (reverse copy) dengan multi-file support"""
@@ -939,23 +946,29 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         if reply != QMessageBox.Ok:
             return  # User cancelled
         
-        # Proses setiap destination path
+        # Proses setiap destination path dengan format robocopy yang tepat
         for dest_path in dest_paths:
-            # Set destination path untuk copy
-            self.dest_input.setText(dest_path)
-            
-            # If destination is file, get parent directory for display  
             if os.path.isfile(dest_path):
-                dest_for_display = os.path.dirname(dest_path)
-                self.dest_explorer.set_path(dest_for_display)
+                # For files: destination = parent directory, include file name in pattern
+                dest_dir = os.path.dirname(dest_path)
+                file_name = os.path.basename(dest_path)
+                
+                self.dest_input.setText(dest_dir)
+                self.dest_explorer.set_path(dest_dir)
+                self.include_files.setText(file_name)
             else:
+                # For folders: use the folder path directly
+                self.dest_input.setText(dest_path)
                 self.dest_explorer.set_path(dest_path)
             
-            # Trigger robocopy dengan setting yang sudah ada
+            # Set flag untuk skip confirmation di run_robocopy
+            self._skip_confirmation = True
+            
+            # Trigger robocopy - will NOT show confirmation dialog
             self.run_robocopy()
             
-            # Optional: delay antara copy operations
-            time.sleep(0.5)
+            # Delay antara copy operations untuk allow UI update
+            time.sleep(1.0)
 
     def create_copy_options_tab(self):
         """Tab untuk copy options"""
@@ -1435,28 +1448,32 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         return cmd
 
     def run_robocopy(self):
-        """Run robocopy command dengan confirmation dialog"""
+        """Run robocopy command dengan confirmation dialog (skip jika dari drag-drop)"""
         command = self.build_robocopy_command()
         if not command:
             return
 
-        # Show confirmation dialog (Fitur Part 3)
-        source = self.source_input.text().strip()
-        dest = self.dest_input.text().strip()
-        reply = QMessageBox.question(
-            self,
-            "Konfirmasi Robocopy",
-            f"Yakin akan memproses robocopy?\n\n"
-            f"Source: {source}\n"
-            f"Destination: {dest}\n\n"
-            f"Proses ini akan berjalan di background.\n"
-            f"Anda dapat memberhentikan dengan tombol 'STOP'.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.No:
-            return
+        # Show confirmation dialog hanya jika tidak dari drag-drop
+        if not self._skip_confirmation:
+            source = self.source_input.text().strip()
+            dest = self.dest_input.text().strip()
+            reply = QMessageBox.question(
+                self,
+                "Konfirmasi Robocopy",
+                f"Yakin akan memproses robocopy?\n\n"
+                f"Source: {source}\n"
+                f"Destination: {dest}\n\n"
+                f"Proses ini akan berjalan di background.\n"
+                f"Anda dapat memberhentikan dengan tombol 'STOP'.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.No:
+                return
+        else:
+            # Reset flag untuk next time
+            self._skip_confirmation = False
 
         # Disable all buttons except STOP (Fitur Part 3)
         self._disable_all_buttons_except_stop()
