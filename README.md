@@ -73,6 +73,45 @@ Aplikasi GUI untuk menjalankan Windows Robocopy dengan antarmuka yang user-frien
   - Minimal CPU impact (<5%)
   - Otomatis berhenti saat copy selesai
 
+### 🎨 **Part 5 - Dual-Pane File Explorer (Feb 2026)**
+- **Dual-Pane Layout** (NEW): Source dan Destination dalam layout side-by-side
+  - Independent navigation per pane
+  - Professional UX seperti Total Commander
+  - Responsive dan mudah digunakan
+
+- **File/Folder Listing with Icons** (NEW): Visual representation file dan folder
+  - 📁 Folder icon untuk direktori
+  - 📄 Document icons (.txt, .docx, .pdf, dll)
+  - 📊 Spreadsheet icons (.xls, .xlsx, .csv)
+  - 🖼️ Image icons (.jpg, .png, .gif, dll)
+  - 🎬 Video icons (.mp4, .avi, .mkv, dll)
+  - 🎵 Audio icons (.mp3, .wav, .flac, dll)
+  - 💻 Code icons (.py, .js, .java, dll)
+  - 📦 Archive icons (.zip, .rar, .7z, dll)
+  - ⚙️ Executable icons (.exe, .msi, dll)
+  - File size displayed untuk setiap file
+  - Folders listed first, kemudian files (alphabetically sorted)
+
+- **Double-Click Navigation** (NEW): Interactive folder exploration
+  - Double-click folder untuk enter dan list contents
+  - Automatic history tracking untuk back functionality
+  - Parent folder (..) support untuk quick navigation up
+  - Auto-refresh list saat navigasi
+  - Path field automatically updated
+
+- **Back Navigation & History** (NEW): Full history stack untuk navigasi
+  - Back button untuk kembali ke previous folder
+  - Full history stack implementation
+  - Back button auto-disabled saat no history
+  - Parent folder (..) di list untuk quick up navigation
+
+- **File/Folder Statistics** (NEW): Quick insights tentang folder contents
+  - Folder count per pane
+  - File count per pane
+  - Total size dengan auto-conversion (B→KB→MB→GB→TB)
+  - Statistics displayed below setiap file list
+  - Helps understand folder contents at a glance
+
 ---
 
 ## Sistem Requirements
@@ -537,14 +576,38 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 
 ## Changelog
 
+### Version 2.0.0 (February 12, 2026)
+- **NEW**: Dual-pane file explorer interface
+  - Professional side-by-side layout untuk Source & Destination
+  - FileExplorerWidget class untuk reusable file explorer
+  - Double-click navigation dengan full history tracking
+  - Back button dan parent folder (..) support
+  - File/folder listing dengan emoji icons berdasarkan file type
+  - Statistics display (folder count, file count, total size)
+  - Size auto-conversion (B→KB→MB→GB→TB)
+- **IMPROVED**: Source & Destination tab UX
+  - More intuitive folder exploration
+  - Better visual feedback dengan icons
+  - Faster navigation dengan history
+- **MAINTAINED**: 100% backward compatibility
+  - All existing features masih berfungsi
+  - Old configurations masih load correctly
+  - No breaking changes to API
+
 ### Version 1.0.0 (February 2026)
-- Initial release
-- Support all robocopy major parameters
-- Configuration persistence
-- Icon support
-- About tab dengan info aplikasi
-- Real-time output logging
-- Process control (stop)
+- **PART 4 FEATURES**: Initial major update
+  - Browse to Last Folder (smart path memory)
+  - Animated Gradient Background during copy
+  - Animation configuration dalam config.conf
+  - Performance optimizations
+  
+- **PART 1-3 FEATURES**: Core functionality
+  - Support all robocopy major parameters
+  - Configuration persistence
+  - Icon support
+  - About tab dengan info aplikasi
+  - Real-time output logging
+  - Process control (stop)
 
 ---
 

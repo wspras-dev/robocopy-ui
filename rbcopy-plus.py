@@ -8,14 +8,216 @@ import time
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+import shutil
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGroupBox, QLabel, QLineEdit, QPushButton, QTextEdit, QCheckBox,
     QComboBox, QSpinBox, QFileDialog, QMessageBox, QTabWidget,
-    QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea
+    QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea,
+    QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer
 from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush
+
+
+class FileExplorerWidget(QWidget):
+    """Widget untuk menampilkan file dan folder explorer dengan dual-pane layout"""
+    path_changed = pyqtSignal(str)  # Signal ketika user navigate folder
+    
+    def __init__(self, initial_path="", parent=None):
+        super().__init__(parent)
+        self.current_path = initial_path
+        self.history = []
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize UI dengan navigation dan file listing"""
+        layout = QVBoxLayout()
+        
+        # Navigation bar
+        nav_layout = QHBoxLayout()
+        self.path_label = QLineEdit()
+        self.path_label.setReadOnly(False)
+        self.path_label.setText(self.current_path)
+        self.path_label.textChanged.connect(self.on_path_changed)
+        
+        self.back_button = QPushButton("◀ Back")
+        self.back_button.setMaximumWidth(100)
+        self.back_button.clicked.connect(self.go_back)
+        self.back_button.setEnabled(len(self.history) > 0)
+        
+        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button.setMaximumWidth(100)
+        self.refresh_button.clicked.connect(self.load_files)
+        
+        nav_layout.addWidget(QLabel("Path:"))
+        nav_layout.addWidget(self.path_label, 1)
+        nav_layout.addWidget(self.back_button)
+        nav_layout.addWidget(self.refresh_button)
+        layout.addLayout(nav_layout)
+        
+        # File list
+        self.file_list = QListWidget()
+        self.file_list.itemDoubleClicked.connect(self.on_item_double_clicked)
+        layout.addWidget(self.file_list)
+        
+        # Statistics
+        self.stats_label = QLabel()
+        self.stats_label.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        layout.addWidget(self.stats_label)
+        
+        self.setLayout(layout)
+        self.load_files()
+    
+    def on_path_changed(self):
+        """Handle path change via text input"""
+        new_path = self.path_label.text().strip()
+        if new_path and new_path != self.current_path:
+            if os.path.isdir(new_path):
+                self.history.append(self.current_path)
+                self.current_path = new_path
+                self.back_button.setEnabled(True)
+                self.load_files()
+                self.path_changed.emit(self.current_path)
+    
+    def load_files(self):
+        """Load dan tampilkan files/folders dari current_path"""
+        try:
+            if not os.path.isdir(self.current_path):
+                self.file_list.clear()
+                self.stats_label.setText("Invalid path")
+                return
+            
+            self.file_list.clear()
+            
+            # Parent folder (..)
+            if self.current_path != os.path.splitdrive(self.current_path)[0]:
+                parent_item = QListWidgetItem("📁 ..")
+                parent_item.setData(Qt.UserRole, ("folder", os.path.dirname(self.current_path)))
+                self.file_list.addItem(parent_item)
+            
+            # Collect folders dan files
+            folders = []
+            files = []
+            total_size = 0
+            
+            try:
+                entries = os.listdir(self.current_path)
+                for entry in sorted(entries):
+                    full_path = os.path.join(self.current_path, entry)
+                    try:
+                        if os.path.isdir(full_path):
+                            folders.append((entry, full_path))
+                        else:
+                            try:
+                                size = os.path.getsize(full_path)
+                                total_size += size
+                                files.append((entry, full_path, size))
+                            except:
+                                files.append((entry, full_path, 0))
+                    except:
+                        continue
+            except PermissionError:
+                pass
+            
+            # Add folders first
+            for folder_name, folder_path in folders:
+                item = QListWidgetItem(f"📁 {folder_name}")
+                item.setData(Qt.UserRole, ("folder", folder_path))
+                self.file_list.addItem(item)
+            
+            # Add files
+            for file_name, file_path, file_size in files:
+                # Get file extension dan icon
+                _, ext = os.path.splitext(file_name)
+                icon = self.get_file_icon(ext)
+                size_str = self.format_size(file_size)
+                
+                display_text = f"{icon} {file_name} ({size_str})"
+                item = QListWidgetItem(display_text)
+                item.setData(Qt.UserRole, ("file", file_path, file_size))
+                self.file_list.addItem(item)
+            
+            # Update statistics
+            folder_count = len(folders)
+            file_count = len(files)
+            total_size_str = self.format_size(total_size)
+            
+            stats_text = f"Folders: {folder_count} | Files: {file_count} | Total Size: {total_size_str}"
+            self.stats_label.setText(stats_text)
+            
+        except Exception as e:
+            self.stats_label.setText(f"Error: {str(e)}")
+    
+    def on_item_double_clicked(self, item):
+        """Handle double-click untuk navigate folder"""
+        data = item.data(Qt.UserRole)
+        if data[0] == "folder":
+            folder_path = data[1]
+            if os.path.isdir(folder_path):
+                self.history.append(self.current_path)
+                self.current_path = folder_path
+                self.path_label.setText(self.current_path)
+                self.back_button.setEnabled(True)
+                self.load_files()
+                self.path_changed.emit(self.current_path)
+    
+    def go_back(self):
+        """Navigate ke folder sebelumnya"""
+        if self.history:
+            self.current_path = self.history.pop()
+            self.path_label.setText(self.current_path)
+            self.back_button.setEnabled(len(self.history) > 0)
+            self.load_files()
+            self.path_changed.emit(self.current_path)
+    
+    def set_path(self, path):
+        """Set path tanpa menambah history"""
+        if os.path.isdir(path):
+            self.current_path = path
+            self.path_label.setText(path)
+            self.load_files()
+    
+    @staticmethod
+    def get_file_icon(extension):
+        """Return emoji icon berdasarkan file extension"""
+        ext = extension.lower()
+        
+        # Documents
+        if ext in ['.txt', '.doc', '.docx', '.pdf']:
+            return "📄"
+        # Spreadsheet
+        elif ext in ['.xls', '.xlsx', '.csv']:
+            return "📊"
+        # Images
+        elif ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg']:
+            return "🖼️"
+        # Videos
+        elif ext in ['.mp4', '.avi', '.mkv', '.mov', '.wmv']:
+            return "🎬"
+        # Audio
+        elif ext in ['.mp3', '.wav', '.flac', '.aac', '.m4a']:
+            return "🎵"
+        # Code
+        elif ext in ['.py', '.js', '.java', '.cpp', '.c', '.h', '.html', '.css']:
+            return "💻"
+        # Archives
+        elif ext in ['.zip', '.rar', '.7z', '.tar', '.gz']:
+            return "📦"
+        # Executables
+        elif ext in ['.exe', '.msi', '.bat', '.sh']:
+            return "⚙️"
+        else:
+            return "📃"
+    
+    @staticmethod
+    def format_size(size_bytes):
+        """Convert bytes to human readable format"""
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024
+        return f"{size_bytes:.1f} PB"
 
 
 class AnimationThread(QThread):
@@ -282,39 +484,94 @@ class RobocopyGUI(QMainWindow):
         main_layout.addLayout(button_layout)
 
     def create_source_dest_tab(self):
-        """Tab untuk source dan destination folder"""
+        """Tab untuk source dan destination folder dengan dual-pane explorer (Part 5)"""
         widget = QWidget()
         layout = QVBoxLayout()
 
-        # Source folder
+        # Title
+        title = QLabel("Source & Destination File Explorer (Part 5)")
+        title_font = QFont()
+        title_font.setBold(True)
+        title.setFont(title_font)
+        layout.addWidget(title)
+
+        # Dual-pane layout
+        panes_layout = QHBoxLayout()
+
+        # Source pane
         source_group = QGroupBox("Source Folder")
-        source_layout = QHBoxLayout()
+        source_layout = QVBoxLayout()
+        
+        # Source path input
+        source_input_layout = QHBoxLayout()
         self.source_input = QLineEdit()
-        self.source_input.setPlaceholderText("Masukkan path folder source...")
+        self.source_input.setPlaceholderText("Enter source folder path...")
         source_browse = QPushButton("Browse...")
         source_browse.clicked.connect(lambda: self.browse_folder(self.source_input))
-        source_layout.addWidget(QLabel("Source:"))
-        source_layout.addWidget(self.source_input, 1)
-        source_layout.addWidget(source_browse)
+        source_input_layout.addWidget(QLabel("Path:"))
+        source_input_layout.addWidget(self.source_input, 1)
+        source_input_layout.addWidget(source_browse)
+        source_layout.addLayout(source_input_layout)
+        
+        # Source file explorer
+        self.source_explorer = FileExplorerWidget()
+        self.source_explorer.path_changed.connect(self.on_source_path_changed)
+        self.source_input.textChanged.connect(self.on_source_input_changed)
+        source_layout.addWidget(self.source_explorer)
+        
         source_group.setLayout(source_layout)
-        layout.addWidget(source_group)
+        panes_layout.addWidget(source_group)
 
-        # Destination folder
+        # Destination pane
         dest_group = QGroupBox("Destination Folder")
-        dest_layout = QHBoxLayout()
+        dest_layout = QVBoxLayout()
+        
+        # Destination path input
+        dest_input_layout = QHBoxLayout()
         self.dest_input = QLineEdit()
-        self.dest_input.setPlaceholderText("Masukkan path folder destination...")
+        self.dest_input.setPlaceholderText("Enter destination folder path...")
         dest_browse = QPushButton("Browse...")
         dest_browse.clicked.connect(lambda: self.browse_folder(self.dest_input))
-        dest_layout.addWidget(QLabel("Destination:"))
-        dest_layout.addWidget(self.dest_input, 1)
-        dest_layout.addWidget(dest_browse)
+        dest_input_layout.addWidget(QLabel("Path:"))
+        dest_input_layout.addWidget(self.dest_input, 1)
+        dest_input_layout.addWidget(dest_browse)
+        dest_layout.addLayout(dest_input_layout)
+        
+        # Destination file explorer
+        self.dest_explorer = FileExplorerWidget()
+        self.dest_explorer.path_changed.connect(self.on_dest_path_changed)
+        self.dest_input.textChanged.connect(self.on_dest_input_changed)
+        dest_layout.addWidget(self.dest_explorer)
+        
         dest_group.setLayout(dest_layout)
-        layout.addWidget(dest_group)
+        panes_layout.addWidget(dest_group)
 
-        layout.addStretch()
+        layout.addLayout(panes_layout, 1)
+
         widget.setLayout(layout)
         return widget
+    
+    def on_source_path_changed(self, path):
+        """Update source input ketika user navigate di explorer"""
+        self.source_input.blockSignals(True)
+        self.source_input.setText(path)
+        self.source_input.blockSignals(False)
+    
+    def on_source_input_changed(self, path):
+        """Update source explorer ketika user input path"""
+        if path and os.path.isdir(path):
+            self.source_explorer.set_path(path)
+    
+    def on_dest_path_changed(self, path):
+        """Update destination input ketika user navigate di explorer"""
+        self.dest_input.blockSignals(True)
+        self.dest_input.setText(path)
+        self.dest_input.blockSignals(False)
+    
+    def on_dest_input_changed(self, path):
+        """Update destination explorer ketika user input path"""
+        if path and os.path.isdir(path):
+            self.dest_explorer.set_path(path)
 
     def create_copy_options_tab(self):
         """Tab untuk copy options"""
