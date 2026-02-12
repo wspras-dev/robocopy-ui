@@ -607,7 +607,34 @@ Untuk pertanyaan atau bug report, silakan hubungi development team melalui inter
 
 ## Changelog
 
-### Version 3.0.3 (February 13, 2026) - LATEST ⭐⭐⭐
+### Version 3.0.4 (February 13, 2026) - LATEST ⭐⭐⭐⭐
+**Part 6 Revisi 4: Queue-Based Non-Blocking Drag-Drop**
+
+- **FIXED**: Race Condition with Blocking Sleep
+  - Removed `time.sleep()` from main thread
+  - Replaced with `QTimer.singleShot()` for non-blocking delays
+  - UI now fully responsive during multi-file operations
+
+- **IMPROVED**: Pending Copy Queue System
+  - Implemented `_pending_copies` queue structure
+  - `_process_next_copy()` processes files sequentially
+  - `_process_next_copy_reverse()` for reverse copy operations
+  - Precise 2000ms delay between file copies
+  - Handles both single and multiple file operations
+
+- **ENHANCED**: Multi-File Drag-Drop
+  - 3 files: copies with proper spacing (file1, wait 2s, file2, wait 2s, file3)
+  - UI responsive while waiting between copies
+  - Proper queue cleanup when empty
+  - Safe attribute checking for queue existence
+
+- **MAINTAINED**: All Features From v3.0.3
+  - Robocopy command format correct
+  - Confirmation dialog
+  - File and folder handling
+  - Reverse copy support (Dest→Source)
+
+### Version 3.0.3 (February 13, 2026)
 **Part 6 Revisi 3: Fixed Drag-Drop Copy Execution**
 
 - **FIXED**: Double Confirmation Dialog Issue
