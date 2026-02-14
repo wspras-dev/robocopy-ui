@@ -1,6 +1,15 @@
 # Robocopy Advanced GUI
 
+## Screeshots
 Aplikasi GUI untuk menjalankan Windows Robocopy dengan antarmuka yang user-friendly dan parameter yang mudah dikonfigurasi.
+<img width="1011" height="678" alt="rb-screen1" src="https://github.com/user-attachments/assets/a42f8563-8321-433c-9456-f280dae33829" />
+<img width="1011" height="681" alt="rb-screen2" src="https://github.com/user-attachments/assets/3c031720-6f4d-4c68-812c-008f2faacbd9" />
+<img width="1011" height="681" alt="rb-screen3" src="https://github.com/user-attachments/assets/5d367b01-312c-4e10-a09d-27538a6a29fa" />
+<img width="1011" height="681" alt="rb-screen4" src="https://github.com/user-attachments/assets/68a0ff0b-c7a5-4f34-a2dc-ed95ca9a0e46" />
+<img width="1011" height="681" alt="rb-screen5" src="https://github.com/user-attachments/assets/732737d4-ca8e-4f7d-9a7d-b82cf9b1971a" />
+<img width="1011" height="681" alt="rb-screen6" src="https://github.com/user-attachments/assets/98be5bd2-6e77-4214-9c67-08889e73b50c" />
+
+
 
 ## Daftar Isi
 - [Fitur Utama](#fitur-utama)
