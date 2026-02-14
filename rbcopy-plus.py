@@ -14,10 +14,10 @@ from PyQt5.QtWidgets import (
     QGroupBox, QLabel, QLineEdit, QPushButton, QTextEdit, QCheckBox,
     QComboBox, QSpinBox, QFileDialog, QMessageBox, QTabWidget,
     QTableWidget, QTableWidgetItem, QSplitter, QProgressBar, QScrollArea,
-    QListWidget, QListWidgetItem, QMenu, QInputDialog
+    QListWidget, QListWidgetItem, QMenu, QInputDialog, QShortcut
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, QSize, QTimer, QMimeData, QUrl
-from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush, QDrag
+from PyQt5.QtGui import QIcon, QFont, QColor, QTextCursor, QPixmap, QLinearGradient, QPainter, QBrush, QDrag, QKeySequence
 
 
 class FileListWidget(QListWidget):
@@ -39,35 +39,79 @@ class FileListWidget(QListWidget):
     def show_context_menu(self, position):
         """Show context menu when right-click"""
         item = self.itemAt(position)
-        if not item:
-            return
-        
-        data = item.data(Qt.UserRole)
-        if not data or len(data) < 2:
-            return
-        
-        file_type = data[0]
-        file_path = data[1]
-        
-        # Create context menu dengan opsi rename dan delete
         menu = QMenu(self)
-        
-        # Rename action
-        rename_action = menu.addAction("✏️ Rename")
-        rename_action.triggered.connect(lambda: self.rename_file(file_path))
-        
-        # Delete action
-        delete_action = menu.addAction("🗑️ Delete")
-        delete_action.triggered.connect(lambda: self.delete_file(file_path))
-        
-        menu.addSeparator()
-        
-        # Open in explorer action
-        explore_action = menu.addAction("📁 Open in Explorer")
-        explore_action.triggered.connect(lambda: self.open_in_explorer(file_path))
-        
+
+        if item:
+            data = item.data(Qt.UserRole)
+            if data and len(data) >= 2:
+                file_type = data[0]
+                file_path = data[1]
+
+                # Rename action
+                rename_action = menu.addAction("✏️ Rename")
+                rename_action.triggered.connect(lambda: self.rename_file(file_path))
+
+                # Delete action
+                delete_action = menu.addAction("🗑️ Delete")
+                delete_action.triggered.connect(lambda: self.delete_file(file_path))
+
+                menu.addSeparator()
+
+                # Open in explorer action
+                explore_action = menu.addAction("📁 Open in Explorer")
+                explore_action.triggered.connect(lambda: self.open_in_explorer(file_path))
+        else:
+            # Clicked on empty area: provide New Folder and Refresh
+            new_action = menu.addAction("📁 New Folder")
+            new_action.triggered.connect(self.create_new_folder)
+            refresh_action = menu.addAction("🔄 Refresh")
+            refresh_action.triggered.connect(lambda: self.parent_explorer.load_files())
+
         # Show the menu
         menu.exec_(self.mapToGlobal(position))
+
+    def create_new_folder(self):
+        """Create a new folder in the current explorer path (invoked from context menu or buttons)"""
+        try:
+            if not hasattr(self, 'parent_explorer') or not self.parent_explorer:
+                QMessageBox.warning(self, "Error", "Parent explorer not available")
+                return
+
+            current_path = self.parent_explorer.current_path
+            if not os.path.isdir(current_path):
+                QMessageBox.warning(self.parent_explorer, "Error", "Current path is not a directory")
+                return
+
+            folder_name, ok = QInputDialog.getText(self.parent_explorer, "New Folder", "Folder name:")
+            if not ok or not folder_name:
+                return
+
+            new_path = os.path.join(current_path, folder_name)
+            if os.path.exists(new_path):
+                QMessageBox.warning(self.parent_explorer, "Error", f"Folder '{folder_name}' sudah ada")
+                return
+
+            os.makedirs(new_path)
+            # Reload files then select the newly created folder in the list
+            self.parent_explorer.load_files()
+            try:
+                file_list = self.parent_explorer.file_list
+                # Find the item whose UserRole path equals new_path
+                for idx in range(file_list.count()):
+                    item = file_list.item(idx)
+                    data = item.data(Qt.UserRole)
+                    if data and len(data) >= 2 and data[1] == new_path:
+                        file_list.setCurrentItem(item)
+                        item.setSelected(True)
+                        file_list.scrollToItem(item)
+                        break
+
+                if getattr(self.parent_explorer, 'parent_app', None):
+                    self.parent_explorer.parent_app.output_text.append(f"[DEBUG] Created folder: {new_path}")
+            except Exception:
+                pass
+        except Exception as e:
+            QMessageBox.critical(self.parent_explorer if hasattr(self, 'parent_explorer') else self, "Error", f"Gagal membuat folder: {e}")
     
     def rename_file(self, file_path):
         """Rename file/folder dengan confirmation dialog"""
@@ -417,6 +461,13 @@ class FileExplorerWidget(QWidget):
             self.current_path = path
             self.path_label.setText(path)
             self.load_files()
+
+    def create_new_folder(self):
+        """Expose create_new_folder on the explorer by delegating to the file_list."""
+        try:
+            return self.file_list.create_new_folder()
+        except Exception:
+            return None
     
     def on_context_menu(self, file_path, file_type):
         """Handle context menu request dari file list"""
@@ -640,7 +691,7 @@ class RobocopyGUI(QMainWindow):
         self.config_file = Path("config.conf")
         self._skip_confirmation = False  # Flag untuk skip confirmation saat drag-drop
         self.init_ui()
-        self.setWindowTitle("RBCopy Plus - Advanced File Copy Tool (r1.6)")
+        self.setWindowTitle("RBCopy Plus - Advanced File Copy Tool (r1.8)")
         self.setGeometry(100, 100, 1200, 800)
         self.setup_window_icon()
         self.load_config()
@@ -781,16 +832,20 @@ class RobocopyGUI(QMainWindow):
         self.source_input.setPlaceholderText("Enter source folder path...")
         source_browse = QPushButton("Browse...")
         source_browse.clicked.connect(lambda: self.browse_folder(self.source_input))
+        source_new = QPushButton("New Folder")
+        source_new.setMaximumWidth(120)
+        source_new.clicked.connect(lambda: self.source_explorer.create_new_folder())
         source_input_layout.addWidget(QLabel("Path:"))
         source_input_layout.addWidget(self.source_input, 1)
         source_input_layout.addWidget(source_browse)
+        source_input_layout.addWidget(source_new)
         source_layout.addLayout(source_input_layout)
         
         # Source file explorer
         self.source_explorer = FileExplorerWidget(parent=self)
         self.source_explorer.path_changed.connect(self.on_source_path_changed)
         # Connect to FileListWidget's drop signal directly for drag-drop
-        self.source_explorer.file_list.drop_requested.connect(self.on_drop_to_destination)
+        self.source_explorer.file_list.drop_requested.connect(self.on_drop_to_source)
         self.source_input.textChanged.connect(self.on_source_input_changed)
         source_layout.addWidget(self.source_explorer)
         
@@ -807,26 +862,59 @@ class RobocopyGUI(QMainWindow):
         self.dest_input.setPlaceholderText("Enter destination folder path...")
         dest_browse = QPushButton("Browse...")
         dest_browse.clicked.connect(lambda: self.browse_folder(self.dest_input))
+        dest_new = QPushButton("New Folder")
+        dest_new.setMaximumWidth(120)
+        dest_new.clicked.connect(lambda: self.dest_explorer.create_new_folder())
         dest_input_layout.addWidget(QLabel("Path:"))
         dest_input_layout.addWidget(self.dest_input, 1)
         dest_input_layout.addWidget(dest_browse)
+        dest_input_layout.addWidget(dest_new)
         dest_layout.addLayout(dest_input_layout)
         
         # Destination file explorer
         self.dest_explorer = FileExplorerWidget(parent=self)
         self.dest_explorer.path_changed.connect(self.on_dest_path_changed)
         # Connect to FileListWidget's drop signal directly for drag-drop
-        self.dest_explorer.file_list.drop_requested.connect(self.on_drop_to_source)
+        self.dest_explorer.file_list.drop_requested.connect(self.on_drop_to_destination)
         self.dest_input.textChanged.connect(self.on_dest_input_changed)
         dest_layout.addWidget(self.dest_explorer)
         
         dest_group.setLayout(dest_layout)
         panes_layout.addWidget(dest_group)
 
+        # Keyboard shortcut: Ctrl+Shift+N untuk New Folder (applies to focused explorer)
+        try:
+            shortcut = QShortcut(QKeySequence("Ctrl+Shift+N"), self)
+            shortcut.activated.connect(self._handle_new_folder_shortcut)
+        except Exception:
+            pass
+
         layout.addLayout(panes_layout, 1)
 
         widget.setLayout(layout)
         return widget
+
+    def _handle_new_folder_shortcut(self):
+        """Handle keyboard shortcut to create a new folder in focused explorer.
+        Preference order: focused file list -> source explorer -> destination explorer.
+        """
+        try:
+            # Prefer file_list focus
+            if hasattr(self, 'source_explorer') and self.source_explorer.file_list.hasFocus():
+                self.source_explorer.file_list.create_new_folder()
+                return
+            if hasattr(self, 'dest_explorer') and self.dest_explorer.file_list.hasFocus():
+                self.dest_explorer.file_list.create_new_folder()
+                return
+
+            # Fallbacks: if any explorer visible, choose source
+            if hasattr(self, 'source_explorer'):
+                self.source_explorer.file_list.create_new_folder()
+                return
+            if hasattr(self, 'dest_explorer'):
+                self.dest_explorer.file_list.create_new_folder()
+        except Exception:
+            pass
     
     def on_source_path_changed(self, path):
         """Update source input ketika user navigate di explorer"""
@@ -1358,7 +1446,7 @@ Tekan OK untuk lanjut atau Cancel untuk batal."""
         app_info_text.setReadOnly(True)
         app_info_text.setText("""
         <b>RBCopy Plus</b><br><br>
-        <b>Version:</b> 1.6.0<br>
+        <b>Version:</b> 1.8.0<br>
         <b>Release Date:</b> February 2026<br><br>
         
         <b>Description:</b><br>
